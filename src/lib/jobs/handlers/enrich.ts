@@ -1,4 +1,4 @@
-import { extractInstagramHandle, crawlWebsite } from "@/lib/enrichment/website-crawler";
+import { crawlWebsite } from "@/lib/enrichment/website-crawler";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { getPlaceDetails } from "@/lib/providers/google-places";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -21,17 +21,33 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
   await adminClient.from("salon_leads").update({ status: "enriching" }).eq("id", lead.id);
 
   const updates: Record<string, unknown> = {};
-  if (lead.google_place_id && (!lead.website_url || !lead.hours_raw || !lead.phone)) {
-    const details = await getPlaceDetails(lead.google_place_id, lead.id);
+
+  // Google Places: only call when hours data is missing AND lead passes quality threshold.
+  // Serper already populates is_open_sunday + closes_before_6pm for most leads, so
+  // this call is only needed for leads where Serper returned no openingHours.
+  const needsPlacesAPI =
+    lead.google_place_id !== null &&
+    lead.closes_before_6pm === null &&
+    lead.is_open_sunday === null &&
+    (lead.rating ?? 0) >= 3.5 &&
+    (lead.review_count ?? 0) >= 15;
+
+  if (needsPlacesAPI) {
+    const details = await getPlaceDetails(lead.google_place_id!, lead.id);
     if (details) {
       if (!lead.phone && details.phone) updates.phone = details.phone;
       if (!lead.website_url && details.website_url) updates.website_url = details.website_url;
-      if (!lead.hours_raw && details.hours_raw) updates.hours_raw = details.hours_raw;
+      if (details.hours_raw) updates.hours_raw = details.hours_raw;
       if (details.is_open_sunday !== null) updates.is_open_sunday = details.is_open_sunday;
       if (details.closes_before_6pm !== null) updates.closes_before_6pm = details.closes_before_6pm;
-      if (details.rating !== null) updates.rating = details.rating;
-      if (details.review_count !== null) updates.review_count = details.review_count;
     }
+  } else {
+    const skipReason =
+      !lead.google_place_id ? "no_place_id" :
+      lead.closes_before_6pm !== null || lead.is_open_sunday !== null ? "hours_from_serper" :
+      (lead.rating ?? 0) < 3.5 ? "low_rating" :
+      "low_review_count";
+    console.log(`[Enrich] Skip Places API for ${lead.id}: ${skipReason}`);
   }
 
   const websiteUrl = (updates.website_url as string | undefined) ?? lead.website_url;
@@ -75,9 +91,8 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     })
     .eq("id", lead.id);
 
-  const instagramUrl = (updates.instagram_url as string | undefined) ?? lead.instagram_url;
-  const handle = instagramUrl ? extractInstagramHandle(instagramUrl) : null;
-  if (handle) await enqueueJob("enrich_instagram", { leadId: lead.id, instagramHandle: handle });
+  // Instagram: do NOT queue Apify here — score handler will gate by priority (P1/P2 only).
+  // We just ensure instagram_url is saved so score handler can read it.
 
   await enqueueJob("score_lead", { leadId: lead.id });
 }

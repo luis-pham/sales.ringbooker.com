@@ -2,6 +2,7 @@ import { handleAutoCreateDemo } from "@/lib/jobs/handlers/auto-demo";
 import { handleAutoSearchQueue } from "@/lib/jobs/handlers/auto-search-queue";
 import { handleEnrichLead } from "@/lib/jobs/handlers/enrich";
 import { handleEnrichInstagram } from "@/lib/jobs/handlers/instagram";
+import { handleInstagramBatch, handleInstagramBatchQueue } from "@/lib/jobs/handlers/instagram-batch";
 import { handleScoreLead } from "@/lib/jobs/handlers/score";
 import { handleSearchRun } from "@/lib/jobs/handlers/search";
 import type { Job } from "@/types";
@@ -16,6 +17,12 @@ export async function dispatchJob(job: Job) {
       return;
     case "enrich_instagram":
       await handleEnrichInstagram(job.payload as { leadId: string; instagramHandle: string });
+      return;
+    case "instagram_batch":
+      await handleInstagramBatch(job.payload as { leads: { leadId: string; handle: string }[] });
+      return;
+    case "instagram_batch_queue":
+      await handleInstagramBatchQueue();
       return;
     case "score_lead":
       await handleScoreLead(job.payload as { leadId: string });

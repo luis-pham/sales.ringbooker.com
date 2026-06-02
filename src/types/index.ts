@@ -232,6 +232,8 @@ export type JobType =
   | "search_run"
   | "enrich_lead"
   | "enrich_instagram"
+  | "instagram_batch"
+  | "instagram_batch_queue"
   | "score_lead"
   | "score_batch"
   | "auto_create_demo"

@@ -22,6 +22,7 @@ const SerperResultSchema = z.object({
   cid: z.union([z.string(), z.number()]).optional(),
   placeId: z.string().optional(),
   place_id: z.string().optional(),
+  openingHours: z.record(z.string(), z.string()).optional(),
 });
 
 export type SerperResult = z.infer<typeof SerperResultSchema>;
@@ -41,6 +42,8 @@ export type NormalizedLead = {
   review_count: number | null;
   categories: string[];
   hours_raw: Record<string, unknown> | null;
+  is_open_sunday: boolean | null;
+  closes_before_6pm: boolean | null;
 };
 
 export type SerperSearchOptions = {
@@ -219,6 +222,7 @@ function normalizeSerperResult(raw: SerperResult): NormalizedLead | null {
   // Only use placeId/place_id (ChIJ... format) — never cid (numeric) which is invalid for Places API v1
   const placeId = raw.placeId ?? raw.place_id ?? null;
   const website = raw.website ?? raw.link ?? null;
+  const { is_open_sunday, closes_before_6pm } = parseSerperHours(raw.openingHours);
 
   return {
     name: raw.title.trim(),
@@ -238,8 +242,41 @@ function normalizeSerperResult(raw: SerperResult): NormalizedLead | null {
     rating: raw.rating ?? null,
     review_count: raw.ratingCount ?? raw.reviews ?? null,
     categories: raw.types ?? (raw.category ? [raw.category] : []),
-    hours_raw: null,
+    hours_raw: raw.openingHours ? (raw.openingHours as Record<string, unknown>) : null,
+    is_open_sunday,
+    closes_before_6pm,
   };
+}
+
+function parseSerperHours(openingHours?: Record<string, string>): {
+  is_open_sunday: boolean | null;
+  closes_before_6pm: boolean | null;
+} {
+  if (!openingHours || Object.keys(openingHours).length === 0) {
+    return { is_open_sunday: null, closes_before_6pm: null };
+  }
+
+  const sunday = openingHours["Sunday"] ?? openingHours["sunday"];
+  const is_open_sunday = sunday !== undefined ? !/closed/i.test(sunday) : null;
+
+  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const weekdayHours = weekdays
+    .map((day) => openingHours[day])
+    .filter((h): h is string => typeof h === "string" && !/closed/i.test(h));
+
+  if (weekdayHours.length === 0) return { is_open_sunday, closes_before_6pm: null };
+
+  const closes_before_6pm = weekdayHours.every((h) => {
+    // Match closing time after the dash/en-dash: e.g. "10 AM–5 PM"
+    const m = h.match(/[–\-]\s*(\d+)(?::(\d+))?\s*(AM|PM)/i);
+    if (!m) return false;
+    const hour = parseInt(m[1]!, 10);
+    const period = m[3]!.toUpperCase();
+    const hour24 = period === "PM" && hour !== 12 ? hour + 12 : period === "AM" && hour === 12 ? 0 : hour;
+    return hour24 < 18;
+  });
+
+  return { is_open_sunday, closes_before_6pm };
 }
 
 function parseAddress(address: string): { city: string; state: string } {

@@ -3,18 +3,12 @@ import { normalizePhone, normalizeUrl } from "@/lib/providers/serper";
 import { logApiCall, API_COSTS } from "@/lib/api-logger";
 
 const PLACES_BASE = "https://places.googleapis.com/v1";
+// Minimal field mask — rating/reviewCount already from Serper, currentOpeningHours redundant
 const DETAIL_FIELDS = [
   "id",
-  "displayName",
-  "formattedAddress",
   "nationalPhoneNumber",
   "websiteUri",
   "regularOpeningHours",
-  "currentOpeningHours",
-  "rating",
-  "userRatingCount",
-  "googleMapsUri",
-  "types",
 ].join(",");
 
 export type PlaceDetails = {
@@ -24,9 +18,6 @@ export type PlaceDetails = {
   is_open_sunday: boolean | null;
   closes_before_6pm: boolean | null;
   formatted_hours: string | null;
-  rating: number | null;
-  review_count: number | null;
-  instagram_url: string | null;
 };
 
 export async function getPlaceDetails(placeId: string, leadId?: string): Promise<PlaceDetails | null> {
@@ -62,9 +53,6 @@ export async function getPlaceDetails(placeId: string, leadId?: string): Promise
     is_open_sunday: parsedHours.isOpenSunday,
     closes_before_6pm: parsedHours.closesBefore6PM,
     formatted_hours: parsedHours.formattedHours,
-    rating: typeof data.rating === "number" ? data.rating : null,
-    review_count: typeof data.userRatingCount === "number" ? data.userRatingCount : null,
-    instagram_url: null,
   };
 }
 

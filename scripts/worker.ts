@@ -9,6 +9,8 @@ const pollIntervalMs = Number.isFinite(env.workerPollIntervalMs) ? env.workerPol
 let lastAutoQueueRun = 0;
 const AUTO_QUEUE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AUTO_QUEUE_HOUR_UTC = 2;
+let lastInstagramBatchRun = 0;
+const INSTAGRAM_BATCH_INTERVAL_MS = 60 * 60 * 1000; // every hour
 
 process.on("SIGINT", () => {
   shuttingDown = true;
@@ -24,6 +26,7 @@ while (!shuttingDown) {
   try {
     await releaseStaleJobs(15);
     await maybeEnqueueDailyAutoSearch();
+    await maybeEnqueueInstagramBatch();
     const job = await claimNextJob(workerId);
     if (!job) {
       await sleep(pollIntervalMs);
@@ -60,4 +63,10 @@ async function maybeEnqueueDailyAutoSearch() {
   console.log("[Worker] Triggering daily auto search queue");
   await enqueueJob("auto_search_queue", {}, { runAt: now, maxAttempts: 1 });
   lastAutoQueueRun = Date.now();
+}
+
+async function maybeEnqueueInstagramBatch() {
+  if (Date.now() - lastInstagramBatchRun < INSTAGRAM_BATCH_INTERVAL_MS) return;
+  await enqueueJob("instagram_batch_queue", {}, { maxAttempts: 1 });
+  lastInstagramBatchRun = Date.now();
 }

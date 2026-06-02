@@ -41,7 +41,7 @@ export async function fetchInstagramProfile(handle: string, leadId?: string): Pr
   }
 
   try {
-    const runId = await startApifyRun(handle);
+    const runId = await startApifyRun([handle]);
     logApiCall({
       provider: "apify",
       endpoint: "instagram_scrape",
@@ -51,7 +51,8 @@ export async function fetchInstagramProfile(handle: string, leadId?: string): Pr
       metadata: { handle },
     });
     if (!runId) return null;
-    const result = await pollApifyRun(runId, 60_000);
+    const items = await pollApifyRunItems(runId, 60_000, 1);
+    const result = items[0] ?? null;
     if (!result) return null;
     return parseInstagramResult(handle, result);
   } catch (error) {
@@ -73,14 +74,15 @@ export async function fetchInstagramProfile(handle: string, leadId?: string): Pr
   }
 }
 
-async function startApifyRun(handle: string): Promise<string | null> {
+/** Fetch a single Instagram profile (1 Apify run per lead). */
+async function startApifyRun(usernames: string[]): Promise<string | null> {
   const response = await fetch(`${APIFY_BASE}/acts/${INSTAGRAM_SCRAPER_ACTOR}/runs`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.apifyApiToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ usernames: [handle], resultsLimit: 1 }),
+    body: JSON.stringify({ usernames, resultsLimit: 1 }),
     signal: AbortSignal.timeout(15_000),
   });
 
@@ -89,7 +91,7 @@ async function startApifyRun(handle: string): Promise<string | null> {
   return json.data?.id ?? null;
 }
 
-async function pollApifyRun(runId: string, timeoutMs: number): Promise<Record<string, unknown> | null> {
+async function pollApifyRunItems(runId: string, timeoutMs: number, limit: number): Promise<Record<string, unknown>[]> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await sleep(3000);
@@ -101,18 +103,49 @@ async function pollApifyRun(runId: string, timeoutMs: number): Promise<Record<st
     const run = (await response.json()) as { data?: { status?: string; defaultDatasetId?: string } };
     if (run.data?.status === "SUCCEEDED") {
       const datasetId = run.data.defaultDatasetId;
-      if (!datasetId) return null;
-      const itemsRes = await fetch(`${APIFY_BASE}/datasets/${datasetId}/items?limit=1`, {
+      if (!datasetId) return [];
+      const itemsRes = await fetch(`${APIFY_BASE}/datasets/${datasetId}/items?limit=${limit}`, {
         headers: { Authorization: `Bearer ${env.apifyApiToken}` },
         signal: AbortSignal.timeout(10_000),
       });
-      if (!itemsRes.ok) return null;
+      if (!itemsRes.ok) return [];
       const items = (await itemsRes.json()) as unknown[];
-      return items[0] && typeof items[0] === "object" ? (items[0] as Record<string, unknown>) : null;
+      return items.filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === "object");
     }
-    if (["FAILED", "ABORTED", "TIMED-OUT"].includes(run.data?.status ?? "")) return null;
+    if (["FAILED", "ABORTED", "TIMED-OUT"].includes(run.data?.status ?? "")) return [];
   }
-  return null;
+  return [];
+}
+
+/**
+ * Batch-fetch multiple Instagram profiles in a single Apify run.
+ * Returned map key is lowercase handle.
+ */
+export async function fetchInstagramProfilesBatch(
+  handles: string[],
+): Promise<Map<string, InstagramProfile | null>> {
+  const map = new Map<string, InstagramProfile | null>();
+  if (!handles.length || !env.apifyApiToken) return map;
+
+  try {
+    const runId = await startApifyRun(handles);
+    logApiCall({
+      provider: "apify",
+      endpoint: "instagram_scrape_batch",
+      estimatedCostUsd: API_COSTS.apify_instagram_run * handles.length * 0.6, // batch is ~40% cheaper per profile
+      status: runId ? "success" : "error",
+      metadata: { count: handles.length },
+    });
+    if (!runId) return map;
+    const items = await pollApifyRunItems(runId, 120_000, handles.length);
+    for (const item of items) {
+      const username = typeof item.username === "string" ? item.username.toLowerCase() : null;
+      if (username) map.set(username, parseInstagramResult(username, item));
+    }
+  } catch {
+    // non-critical — return empty map
+  }
+  return map;
 }
 
 function parseInstagramResult(handle: string, raw: Record<string, unknown>): InstagramProfile {

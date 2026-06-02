@@ -1,5 +1,7 @@
+import { extractInstagramHandle } from "@/lib/enrichment/website-crawler";
 import { createDemo } from "@/lib/demo/demo-service";
 import { calculateScore } from "@/lib/scoring/scoring-engine";
+import { enqueueJob } from "@/lib/jobs/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { InstagramSnapshot, SalonLead, WebsiteSnapshot } from "@/types";
 
@@ -45,5 +47,17 @@ export async function handleScoreLead(payload: ScoreLeadPayload) {
 
   if (result.priority === 1) {
     await createDemo(payload.leadId, null).catch(() => null);
+  }
+
+  // Queue Instagram enrichment only for priority 1 and 2 — saves Apify cost on low-value leads.
+  // enrich.ts intentionally skips Instagram queueing to defer this decision to after scoring.
+  if (result.priority <= 2 && lead.instagram_url && !instagramSnapshot) {
+    const handle = extractInstagramHandle(lead.instagram_url);
+    if (handle) {
+      console.log(`[Score] Queuing Instagram for P${result.priority} lead ${payload.leadId}: @${handle}`);
+      await enqueueJob("enrich_instagram", { leadId: payload.leadId, instagramHandle: handle });
+    }
+  } else if (result.priority === 3 && lead.instagram_url && !instagramSnapshot) {
+    console.log(`[Score] Skip Instagram for P3 lead ${payload.leadId}`);
   }
 }
