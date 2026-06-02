@@ -1,0 +1,9 @@
+{
+  "scannedAt": "2026-06-02T00:00:00.000Z",
+  "framework": "Next.js 16 App Router",
+  "fonts": "Inter via next/font",
+  "palette": "violet/slate dashboard tokens from docs/00_PROJECT_OVERVIEW.md",
+  "motion": "motion-cut",
+  "spacing": "4px base scale",
+  "source": "docs"
+}
