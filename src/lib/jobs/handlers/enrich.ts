@@ -51,6 +51,7 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
         has_phone_visible: crawl.has_phone_visible,
         instagram_links: crawl.instagram_links,
         facebook_links: crawl.facebook_links,
+        tiktok_links: crawl.tiktok_links,
         response_status: crawl.response_status,
         error: crawl.error ?? null,
         crawl_duration_ms: crawl.crawl_duration_ms,
@@ -62,6 +63,7 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     if (!lead.phone && crawl.phones[0]) updates.phone = crawl.phones[0];
     if (!lead.instagram_url && crawl.instagram_links[0]) updates.instagram_url = crawl.instagram_links[0];
     if (!lead.facebook_url && crawl.facebook_links[0]) updates.facebook_url = crawl.facebook_links[0];
+    if (!lead.tiktok_url && crawl.tiktok_links[0]) updates.tiktok_url = crawl.tiktok_links[0];
   }
 
   await adminClient
