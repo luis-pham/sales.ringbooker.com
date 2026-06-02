@@ -58,7 +58,22 @@ export async function handleInstagramBatch(payload: InstagramBatchPayload) {
 export async function handleInstagramBatchQueue() {
   const adminClient = createAdminClient();
 
-  // Find P1+P2 leads that have an Instagram URL but no snapshot yet
+  // Don't overlap batches — skip if one is still pending/processing
+  const { data: inflight } = await adminClient
+    .from("jobs")
+    .select("id")
+    .eq("type", "instagram_batch")
+    .in("status", ["pending", "processing"])
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  if (inflight) {
+    console.log("[InstagramBatchQueue] A batch is already in flight, skipping");
+    return;
+  }
+
+  // Find P2 leads with an Instagram URL but no snapshot yet.
+  // P1 leads are fetched individually right after scoring (see score.ts).
   const { data: pendingLeads } = await adminClient
     .from("salon_leads")
     .select("id, instagram_url, lead_scores!inner(priority)")
@@ -68,11 +83,11 @@ export async function handleInstagramBatchQueue() {
       "in",
       `(select lead_id from instagram_snapshots where status in ('fetched','not_found','private'))`,
     )
-    .lte("lead_scores.priority", 2)
+    .eq("lead_scores.priority", 2)
     .limit(50);
 
   if (!pendingLeads || pendingLeads.length === 0) {
-    console.log("[InstagramBatchQueue] No pending P1/P2 leads");
+    console.log("[InstagramBatchQueue] No pending P2 leads");
     return;
   }
 

@@ -49,15 +49,21 @@ export async function handleScoreLead(payload: ScoreLeadPayload) {
     await createDemo(payload.leadId, null).catch(() => null);
   }
 
-  // Queue Instagram enrichment only for priority 1 and 2 — saves Apify cost on low-value leads.
-  // enrich.ts intentionally skips Instagram queueing to defer this decision to after scoring.
-  if (result.priority <= 2 && lead.instagram_url && !instagramSnapshot) {
-    const handle = extractInstagramHandle(lead.instagram_url);
-    if (handle) {
-      console.log(`[Score] Queuing Instagram for P${result.priority} lead ${payload.leadId}: @${handle}`);
-      await enqueueJob("enrich_instagram", { leadId: payload.leadId, instagramHandle: handle });
+  // Instagram fetch strategy (cost optimization):
+  //   P1 → individual immediate fetch (high value, demo needs the data now)
+  //   P2 → deferred to hourly batch (handleInstagramBatchQueue) — ~40% cheaper per profile
+  //   P3 → skipped entirely
+  if (lead.instagram_url && !instagramSnapshot) {
+    if (result.priority === 1) {
+      const handle = extractInstagramHandle(lead.instagram_url);
+      if (handle) {
+        console.log(`[Score] Queuing immediate Instagram for P1 lead ${payload.leadId}: @${handle}`);
+        await enqueueJob("enrich_instagram", { leadId: payload.leadId, instagramHandle: handle });
+      }
+    } else if (result.priority === 2) {
+      console.log(`[Score] P2 lead ${payload.leadId} deferred to hourly Instagram batch`);
+    } else {
+      console.log(`[Score] Skip Instagram for P3 lead ${payload.leadId}`);
     }
-  } else if (result.priority === 3 && lead.instagram_url && !instagramSnapshot) {
-    console.log(`[Score] Skip Instagram for P3 lead ${payload.leadId}`);
   }
 }

@@ -75,7 +75,9 @@ export const SEARCH_TARGETS: SearchTarget[] = [
 export const RESCRAPE_INTERVAL_DAYS = 30;
 export const SEARCH_JOB_STAGGER_MS = 90_000;
 export const SERPER_MAX_RESULTS_PER_CALL = 100;
-export const SERPER_MAX_PAGES = 5;
+// Grid already provides geographic breadth; 3 pages/point gives good coverage
+// while avoiding low-quality page 4-5 results that inflate downstream enrich cost.
+export const SERPER_MAX_PAGES = 3;
 
 export function getGridConfig(city: string, state: string): GridConfig {
   return CITY_GRIDS[`${city}_${state}`] ?? {
