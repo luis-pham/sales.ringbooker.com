@@ -32,16 +32,28 @@ export async function getPlaceDetails(placeId: string, leadId?: string): Promise
     signal: AbortSignal.timeout(20_000),
   });
 
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "(unreadable)");
+    logApiCall({
+      provider: "google_places",
+      endpoint: "place_details",
+      estimatedCostUsd: 0,
+      status: "error",
+      leadId,
+      metadata: { placeId, httpStatus: response.status, error: errorBody.slice(0, 300) },
+    });
+    console.error(`[Places] ${response.status} for ${placeId}: ${errorBody.slice(0, 200)}`);
+    return null;
+  }
+
   logApiCall({
     provider: "google_places",
     endpoint: "place_details",
     estimatedCostUsd: API_COSTS.google_places_details,
-    status: response.ok ? "success" : "error",
+    status: "success",
     leadId,
     metadata: { placeId },
   });
-
-  if (!response.ok) return null;
   const data = (await response.json()) as Record<string, unknown>;
   const hours = getObject(data.regularOpeningHours) ?? getObject(data.currentOpeningHours);
   const parsedHours = parseGoogleHours(hours);
