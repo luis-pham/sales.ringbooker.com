@@ -1,23 +1,27 @@
-function getEnv(name: string, fallback = "") {
+function getServerEnv(name: string, fallback = "") {
+  if (typeof window !== "undefined") return fallback;
   return process.env[name] ?? fallback;
 }
 
+const defaultWorkerId =
+  typeof process !== "undefined" && typeof process.pid === "number" ? `worker-${process.pid}` : "worker-browser";
+
 export const env = {
-  supabaseUrl: getEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-  supabaseServiceRoleKey: getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-  allowedEmailDomains: getEnv("ALLOWED_EMAIL_DOMAINS", "ringbooker.com")
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  supabaseServiceRoleKey: getServerEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  allowedEmailDomains: getServerEnv("ALLOWED_EMAIL_DOMAINS", "ringbooker.com")
     .split(",")
     .map((domain) => domain.trim().toLowerCase())
     .filter(Boolean),
-  internalApiSecret: getEnv("INTERNAL_API_SECRET"),
-  cronSecret: getEnv("CRON_SECRET"),
-  workerId: getEnv("WORKER_ID", `worker-${process.pid}`),
-  workerPollIntervalMs: Number(getEnv("WORKER_POLL_INTERVAL_MS", "2000")),
-  serperApiKey: getEnv("SERPER_API_KEY"),
-  googlePlacesApiKey: getEnv("GOOGLE_PLACES_API_KEY"),
-  apifyApiToken: getEnv("APIFY_API_TOKEN"),
-  ringbookerInternalApiUrl: getEnv("RINGBOOKER_INTERNAL_API_URL"),
-  ringbookerInternalApiKey: getEnv("RINGBOOKER_INTERNAL_API_KEY"),
-  ringbookerWebhookSecret: getEnv("RINGBOOKER_WEBHOOK_SECRET"),
+  internalApiSecret: getServerEnv("INTERNAL_API_SECRET"),
+  cronSecret: getServerEnv("CRON_SECRET"),
+  workerId: getServerEnv("WORKER_ID", defaultWorkerId),
+  workerPollIntervalMs: Number(getServerEnv("WORKER_POLL_INTERVAL_MS", "2000")),
+  serperApiKey: getServerEnv("SERPER_API_KEY"),
+  googlePlacesApiKey: getServerEnv("GOOGLE_PLACES_API_KEY"),
+  apifyApiToken: getServerEnv("APIFY_API_TOKEN"),
+  ringbookerInternalApiUrl: getServerEnv("RINGBOOKER_INTERNAL_API_URL"),
+  ringbookerInternalApiKey: getServerEnv("RINGBOOKER_INTERNAL_API_KEY"),
+  ringbookerWebhookSecret: getServerEnv("RINGBOOKER_WEBHOOK_SECRET"),
 };
