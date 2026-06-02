@@ -9,7 +9,7 @@ export type EnrichInstagramPayload = {
 
 export async function handleEnrichInstagram(payload: EnrichInstagramPayload) {
   const adminClient = createAdminClient();
-  const profile = await fetchInstagramProfile(payload.instagramHandle);
+  const profile = await fetchInstagramProfile(payload.instagramHandle, payload.leadId);
 
   if (!profile) {
     await adminClient.from("instagram_snapshots").upsert(

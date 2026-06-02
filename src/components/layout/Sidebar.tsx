@@ -9,6 +9,7 @@ import {
   ChevronRight,
   KanbanSquare,
   LayoutDashboard,
+  ScrollText,
   Scissors,
   Search,
   Users,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
   { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin"] },
   { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
+  { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
 ] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
 
 export function Sidebar({

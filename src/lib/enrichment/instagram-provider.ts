@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { detectPlatformFromUrl } from "@/lib/enrichment/platform-detector";
+import { logApiCall, API_COSTS } from "@/lib/api-logger";
 
 const APIFY_BASE = "https://api.apify.com/v2";
 const INSTAGRAM_SCRAPER_ACTOR = "apify~instagram-profile-scraper";
@@ -20,7 +21,7 @@ export type InstagramProfile = {
   raw: Record<string, unknown>;
 };
 
-export async function fetchInstagramProfile(handle: string): Promise<InstagramProfile | null> {
+export async function fetchInstagramProfile(handle: string, leadId?: string): Promise<InstagramProfile | null> {
   if (!env.apifyApiToken) {
     return {
       handle,
@@ -41,6 +42,14 @@ export async function fetchInstagramProfile(handle: string): Promise<InstagramPr
 
   try {
     const runId = await startApifyRun(handle);
+    logApiCall({
+      provider: "apify",
+      endpoint: "instagram_scrape",
+      estimatedCostUsd: API_COSTS.apify_instagram_run,
+      status: runId ? "success" : "error",
+      leadId,
+      metadata: { handle },
+    });
     if (!runId) return null;
     const result = await pollApifyRun(runId, 60_000);
     if (!result) return null;

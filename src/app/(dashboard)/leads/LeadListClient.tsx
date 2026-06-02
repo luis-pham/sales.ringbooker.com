@@ -20,7 +20,7 @@ type LeadRow = {
 
 export function LeadListClient({ leads }: { leads: LeadRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] text-sm">
         <thead className="border-b border-border text-left text-xs text-muted">
           <tr>

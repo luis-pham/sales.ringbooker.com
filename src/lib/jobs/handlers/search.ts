@@ -159,6 +159,7 @@ async function searchManualRun(run: LeadSearchRun, queryVariation: string) {
     location: `${run.city}, ${run.state}`,
     country: run.country.toLowerCase(),
     limit: run.max_results,
+    searchRunId: run.id,
   });
 
   return {

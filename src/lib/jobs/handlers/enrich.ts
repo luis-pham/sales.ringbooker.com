@@ -22,7 +22,7 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
 
   const updates: Record<string, unknown> = {};
   if (lead.google_place_id && (!lead.website_url || !lead.hours_raw || !lead.phone)) {
-    const details = await getPlaceDetails(lead.google_place_id);
+    const details = await getPlaceDetails(lead.google_place_id, lead.id);
     if (details) {
       if (!lead.phone && details.phone) updates.phone = details.phone;
       if (!lead.website_url && details.website_url) updates.website_url = details.website_url;

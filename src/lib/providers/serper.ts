@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { logApiCall, API_COSTS } from "@/lib/api-logger";
 
 const SERPER_MAPS_PAGE_SIZE = 20;
 const SERPER_MAPS_MAX_RESULTS = 100;
@@ -52,6 +53,7 @@ export type SerperSearchOptions = {
   llParam?: string;
   page?: number;
   num?: number;
+  searchRunId?: string;
 };
 
 export type SerperSearchResult = {
@@ -165,6 +167,16 @@ async function searchGoogleMapsPage(options: SerperSearchOptions): Promise<Serpe
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(45_000),
+  });
+
+  const callStatus = response.ok ? "success" : "error";
+  logApiCall({
+    provider: "serper",
+    endpoint: "maps_search",
+    estimatedCostUsd: API_COSTS.serper_maps_page,
+    status: callStatus,
+    searchRunId: options.searchRunId,
+    metadata: { page, q, gl: options.country ?? "us" },
   });
 
   if (response.status === 401 || response.status === 403) throw new Error("Serper auth failed");

@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { normalizePhone, normalizeUrl } from "@/lib/providers/serper";
+import { logApiCall, API_COSTS } from "@/lib/api-logger";
 
 const PLACES_BASE = "https://places.googleapis.com/v1";
 const DETAIL_FIELDS = [
@@ -28,7 +29,7 @@ export type PlaceDetails = {
   instagram_url: string | null;
 };
 
-export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
+export async function getPlaceDetails(placeId: string, leadId?: string): Promise<PlaceDetails | null> {
   if (!env.googlePlacesApiKey || !placeId) return null;
 
   const response = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
@@ -37,6 +38,15 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | n
       "X-Goog-FieldMask": DETAIL_FIELDS,
     },
     signal: AbortSignal.timeout(20_000),
+  });
+
+  logApiCall({
+    provider: "google_places",
+    endpoint: "place_details",
+    estimatedCostUsd: API_COSTS.google_places_details,
+    status: response.ok ? "success" : "error",
+    leadId,
+    metadata: { placeId },
   });
 
   if (!response.ok) return null;
