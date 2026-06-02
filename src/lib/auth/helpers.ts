@@ -3,6 +3,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/types";
 
+async function getProfileByUserId(userId: string) {
+  const adminClient = createAdminClient();
+  const { data: profile } = await adminClient
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle<Profile>();
+
+  return profile ?? null;
+}
+
 export async function requireAuth(): Promise<Profile> {
   const supabase = await createClient();
   const {
@@ -11,13 +22,10 @@ export async function requireAuth(): Promise<Profile> {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single<Profile>();
+  const profile = await getProfileByUserId(user.id);
 
-  if (!profile || !profile.is_active) redirect("/unauthorized");
+  if (!profile) redirect("/unauthorized?reason=profile");
+  if (!profile.is_active) redirect("/unauthorized?reason=inactive");
   return profile;
 }
 
@@ -39,15 +47,11 @@ export async function getSessionUser(): Promise<{
 
   if (!user?.email) return { user: null, profile: null };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single<Profile>();
+  const profile = await getProfileByUserId(user.id);
 
   return {
     user: { id: user.id, email: user.email },
-    profile: profile ?? null,
+    profile: profile?.is_active ? profile : null,
   };
 }
 

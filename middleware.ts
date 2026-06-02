@@ -3,6 +3,23 @@ import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/invite", "/unauthorized"];
 
+function parseAllowedDomains(value: string | undefined) {
+  const domains = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .map((entry) => (entry.includes("@") ? entry.split("@").pop() ?? "" : entry))
+    .filter(Boolean);
+
+  return domains.length > 0 ? domains : ["ringbooker.com"];
+}
+
+function redirectUnauthorized(request: NextRequest, reason: "domain") {
+  const url = new URL("/unauthorized", request.url);
+  url.searchParams.set("reason", reason);
+  return NextResponse.redirect(url);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -45,10 +62,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const allowedDomains = (process.env.ALLOWED_EMAIL_DOMAINS ?? "ringbooker.com")
-    .split(",")
-    .map((domain) => domain.trim().toLowerCase())
-    .filter(Boolean);
+  const allowedDomains = parseAllowedDomains(process.env.ALLOWED_EMAIL_DOMAINS);
   const emailDomain = user.email?.split("@")[1]?.toLowerCase() ?? "";
 
   if (allowedDomains.length > 0 && !allowedDomains.includes(emailDomain)) {
@@ -59,23 +73,7 @@ export async function middleware(request: NextRequest) {
       .not("accepted_at", "is", null)
       .maybeSingle();
 
-    if (!invite) return NextResponse.redirect(new URL("/unauthorized", request.url));
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!profile?.is_active) {
-    await supabase.auth.signOut();
-    return NextResponse.redirect(new URL("/unauthorized", request.url));
-  }
-
-  const adminPaths = ["/team", "/analytics", "/search"];
-  if (adminPaths.some((path) => pathname.startsWith(path)) && profile.role !== "admin") {
-    return NextResponse.redirect(new URL("/", request.url));
+    if (!invite) return redirectUnauthorized(request, "domain");
   }
 
   return supabaseResponse;

@@ -3,6 +3,17 @@ function getServerEnv(name: string, fallback = "") {
   return process.env[name] ?? fallback;
 }
 
+function parseAllowedDomains(value: string | undefined) {
+  const domains = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .map((entry) => (entry.includes("@") ? entry.split("@").pop() ?? "" : entry))
+    .filter(Boolean);
+
+  return domains.length > 0 ? domains : ["ringbooker.com"];
+}
+
 const defaultWorkerId =
   typeof process !== "undefined" && typeof process.pid === "number" ? `worker-${process.pid}` : "worker-browser";
 
@@ -10,10 +21,7 @@ export const env = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
   supabaseServiceRoleKey: getServerEnv("SUPABASE_SERVICE_ROLE_KEY"),
-  allowedEmailDomains: getServerEnv("ALLOWED_EMAIL_DOMAINS", "ringbooker.com")
-    .split(",")
-    .map((domain) => domain.trim().toLowerCase())
-    .filter(Boolean),
+  allowedEmailDomains: parseAllowedDomains(getServerEnv("ALLOWED_EMAIL_DOMAINS")),
   internalApiSecret: getServerEnv("INTERNAL_API_SECRET"),
   cronSecret: getServerEnv("CRON_SECRET"),
   workerId: getServerEnv("WORKER_ID", defaultWorkerId),
