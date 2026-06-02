@@ -15,6 +15,7 @@ export type CrawlResult = {
   has_phone_visible: boolean;
   instagram_links: string[];
   facebook_links: string[];
+  tiktok_links: string[];
   response_status: number | null;
   crawl_duration_ms: number;
   error?: string;
@@ -54,11 +55,14 @@ const BOOKING_DOMAINS = [
 // Regex to pull raw social URLs from HTML source (catches script blocks, JSON-LD, Wix/Squarespace embeds)
 const INSTAGRAM_RAW_RE = /https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]{1,30})\/?(?=[^a-zA-Z0-9._/]|$)/g;
 const FACEBOOK_RAW_RE = /https?:\/\/(?:www\.)?(?:facebook\.com|fb\.com)\/([^\s"'`<>\\\]/?#][^\s"'`<>\\\]]*)/g;
+const TIKTOK_RAW_RE = /https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]{1,30})\/?(?=[^a-zA-Z0-9._/]|$)/g;
 
 // Instagram path segments that are NOT profile URLs
 const IG_EXCLUDED = new Set(["p", "reel", "reels", "stories", "explore", "accounts", "tv", "legal", "about", "share", "direct"]);
 // Facebook path segments that are NOT business profile URLs
 const FB_EXCLUDED = new Set(["login", "recover", "help", "watch", "gaming", "marketplace", "reel", "reels", "sharer", "share", "dialog", "plugins"]);
+// TikTok path segments that are NOT profile URLs
+const TT_EXCLUDED = new Set(["share", "embed", "video", "discover", "live", "explore"]);
 
 export async function crawlWebsite(url: string): Promise<CrawlResult> {
   const start = Date.now();
@@ -94,7 +98,7 @@ export async function crawlWebsite(url: string): Promise<CrawlResult> {
     const bodyText = $("body").text().replace(/\s+/g, " ").toLowerCase();
     const platform_hits = detectPlatforms(html, allLinks, scriptSrcs);
     const booking_urls = extractBookingUrls($, allLinks);
-    const { instagram_links, facebook_links } = extractSocialLinks(html, allLinks);
+    const { instagram_links, facebook_links, tiktok_links } = extractSocialLinks(html, allLinks);
     const phones = extractPhones(html);
     const emails = extractEmails(html);
     const cta_strength = detectCtaStrength(bodyText);
@@ -111,6 +115,7 @@ export async function crawlWebsite(url: string): Promise<CrawlResult> {
       has_phone_visible: phones.length > 0,
       instagram_links,
       facebook_links,
+      tiktok_links,
       response_status: response.status,
       crawl_duration_ms: Date.now() - start,
     };
@@ -132,6 +137,7 @@ function emptyResult(url: string, status: CrawlResult["status"], durationMs: num
     has_phone_visible: false,
     instagram_links: [],
     facebook_links: [],
+    tiktok_links: [],
     response_status: responseStatus,
     crawl_duration_ms: durationMs,
     error,
@@ -172,20 +178,23 @@ function extractBookingUrls($: cheerio.CheerioAPI, links: string[]) {
  * 2. <a href> anchor tags — standard HTML links
  * 3. Raw HTML regex — catches social URLs embedded in <script> blocks, Wix config, etc.
  */
-function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_links: string[]; facebook_links: string[] } {
+function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_links: string[]; facebook_links: string[]; tiktok_links: string[] } {
   const candidatesIg = new Set<string>();
   const candidatesFb = new Set<string>();
+  const candidatesTt = new Set<string>();
 
   // Strategy 1: JSON-LD sameAs
   for (const url of extractJsonLdSameAs(html)) {
     if (url.includes("instagram.com")) candidatesIg.add(url);
     if (url.includes("facebook.com") || url.includes("fb.com")) candidatesFb.add(url);
+    if (url.includes("tiktok.com")) candidatesTt.add(url);
   }
 
   // Strategy 2: <a href> anchor tags (already parsed)
   for (const link of anchorLinks) {
     if (link.includes("instagram.com")) candidatesIg.add(link);
     if (link.includes("facebook.com") || link.includes("fb.com")) candidatesFb.add(link);
+    if (link.includes("tiktok.com")) candidatesTt.add(link);
   }
 
   // Strategy 3: Raw HTML scan — finds URLs inside <script>, JSON config, data attributes
@@ -194,6 +203,9 @@ function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_li
   }
   for (const match of html.matchAll(FACEBOOK_RAW_RE)) {
     candidatesFb.add(`https://www.facebook.com/${match[1]!.split(/[?#]/)[0]}`);
+  }
+  for (const match of html.matchAll(TIKTOK_RAW_RE)) {
+    candidatesTt.add(`https://www.tiktok.com/@${match[1]!}`);
   }
 
   return {
@@ -204,6 +216,11 @@ function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_li
       .slice(0, 3),
     facebook_links: [...candidatesFb]
       .map(normalizeFacebookProfile)
+      .filter((u): u is string => u !== null)
+      .filter((u, i, a) => a.indexOf(u) === i)
+      .slice(0, 3),
+    tiktok_links: [...candidatesTt]
+      .map(normalizeTikTokProfile)
       .filter((u): u is string => u !== null)
       .filter((u, i, a) => a.indexOf(u) === i)
       .slice(0, 3),
@@ -245,6 +262,23 @@ function normalizeInstagramProfile(url: string): string | null {
     if (IG_EXCLUDED.has(handle)) return null;
     if (!/^[a-zA-Z0-9._]{1,30}$/.test(handle)) return null;
     return `https://www.instagram.com/${handle}`;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeTikTokProfile(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    if (segs.length === 0) return null;
+    const first = segs[0]!;
+    // TikTok profiles always start with @
+    if (!first.startsWith("@")) return null;
+    const handle = first.slice(1).toLowerCase();
+    if (!handle || TT_EXCLUDED.has(handle)) return null;
+    if (!/^[a-zA-Z0-9._]{1,30}$/.test(handle)) return null;
+    return `https://www.tiktok.com/@${handle}`;
   } catch {
     return null;
   }
