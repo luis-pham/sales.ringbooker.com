@@ -21,15 +21,15 @@
 }
 
 .dark {
-  --color-background: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-muted: #334155;
-  --color-border: #334155;
-  --color-border-strong: #475569;
-  --color-text: #f1f5f9;
-  --color-muted: #94a3b8;
-  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.3);
-  --shadow-modal: 0 20px 60px rgb(0 0 0 / 0.5);
+  --color-background: #000000;
+  --color-surface: #0d0d0d;
+  --color-surface-muted: #1a1a1a;
+  --color-border: #1f1f1f;
+  --color-border-strong: #2a2a2a;
+  --color-text: #f5f5f5;
+  --color-muted: #888888;
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-modal: 0 20px 60px rgb(0 0 0 / 0.7);
 }
 
 @theme inline {
