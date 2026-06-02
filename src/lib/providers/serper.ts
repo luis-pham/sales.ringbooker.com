@@ -216,7 +216,8 @@ function normalizeSerperResult(raw: SerperResult): NormalizedLead | null {
   const { city, state } = parseAddress(raw.address ?? "");
   const lat = typeof raw.latitude === "number" ? raw.latitude : raw.latitude ? Number.parseFloat(raw.latitude) : null;
   const lng = typeof raw.longitude === "number" ? raw.longitude : raw.longitude ? Number.parseFloat(raw.longitude) : null;
-  const placeId = raw.placeId ?? raw.place_id ?? (raw.cid != null ? String(raw.cid) : null);
+  // Only use placeId/place_id (ChIJ... format) — never cid (numeric) which is invalid for Places API v1
+  const placeId = raw.placeId ?? raw.place_id ?? null;
   const website = raw.website ?? raw.link ?? null;
 
   return {

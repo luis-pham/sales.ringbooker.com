@@ -30,7 +30,8 @@ export type PlaceDetails = {
 };
 
 export async function getPlaceDetails(placeId: string, leadId?: string): Promise<PlaceDetails | null> {
-  if (!env.googlePlacesApiKey || !placeId) return null;
+  // Reject numeric CIDs — Places API v1 only accepts ChIJ... format place IDs
+  if (!env.googlePlacesApiKey || !placeId || /^\d+$/.test(placeId)) return null;
 
   const response = await fetch(`${PLACES_BASE}/places/${encodeURIComponent(placeId)}`, {
     headers: {
