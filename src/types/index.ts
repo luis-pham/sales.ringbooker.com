@@ -35,6 +35,7 @@ export type SalonLead = {
   phone: string | null;
   website_url: string | null;
   instagram_url: string | null;
+  facebook_url: string | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -103,6 +104,7 @@ export type WebsiteSnapshot = {
   has_online_booking: boolean | null;
   has_phone_visible: boolean | null;
   instagram_links: string[] | null;
+  facebook_links: string[] | null;
   response_status: number | null;
   error: string | null;
   crawl_duration_ms: number | null;

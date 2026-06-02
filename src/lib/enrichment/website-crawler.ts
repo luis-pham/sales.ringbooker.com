@@ -14,6 +14,7 @@ export type CrawlResult = {
   has_online_booking: boolean;
   has_phone_visible: boolean;
   instagram_links: string[];
+  facebook_links: string[];
   response_status: number | null;
   crawl_duration_ms: number;
   error?: string;
@@ -50,6 +51,15 @@ const BOOKING_DOMAINS = [
   "schedulicity.com",
 ];
 
+// Regex to pull raw social URLs from HTML source (catches script blocks, JSON-LD, Wix/Squarespace embeds)
+const INSTAGRAM_RAW_RE = /https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9._]{1,30})\/?(?=[^a-zA-Z0-9._/]|$)/g;
+const FACEBOOK_RAW_RE = /https?:\/\/(?:www\.)?(?:facebook\.com|fb\.com)\/([^\s"'`<>\\\]/?#][^\s"'`<>\\\]]*)/g;
+
+// Instagram path segments that are NOT profile URLs
+const IG_EXCLUDED = new Set(["p", "reel", "reels", "stories", "explore", "accounts", "tv", "legal", "about", "share", "direct"]);
+// Facebook path segments that are NOT business profile URLs
+const FB_EXCLUDED = new Set(["login", "recover", "help", "watch", "gaming", "marketplace", "reel", "reels", "sharer", "share", "dialog", "plugins"]);
+
 export async function crawlWebsite(url: string): Promise<CrawlResult> {
   const start = Date.now();
   const normalized = url.startsWith("http") ? url : `https://${url}`;
@@ -84,7 +94,7 @@ export async function crawlWebsite(url: string): Promise<CrawlResult> {
     const bodyText = $("body").text().replace(/\s+/g, " ").toLowerCase();
     const platform_hits = detectPlatforms(html, allLinks, scriptSrcs);
     const booking_urls = extractBookingUrls($, allLinks);
-    const instagram_links = extractInstagramLinks(allLinks);
+    const { instagram_links, facebook_links } = extractSocialLinks(html, allLinks);
     const phones = extractPhones(html);
     const emails = extractEmails(html);
     const cta_strength = detectCtaStrength(bodyText);
@@ -100,6 +110,7 @@ export async function crawlWebsite(url: string): Promise<CrawlResult> {
       has_online_booking: booking_urls.length > 0 || platform_hits.length > 0,
       has_phone_visible: phones.length > 0,
       instagram_links,
+      facebook_links,
       response_status: response.status,
       crawl_duration_ms: Date.now() - start,
     };
@@ -120,6 +131,7 @@ function emptyResult(url: string, status: CrawlResult["status"], durationMs: num
     has_online_booking: false,
     has_phone_visible: false,
     instagram_links: [],
+    facebook_links: [],
     response_status: responseStatus,
     crawl_duration_ms: durationMs,
     error,
@@ -154,6 +166,115 @@ function extractBookingUrls($: cheerio.CheerioAPI, links: string[]) {
   return [...urls].slice(0, 5);
 }
 
+/**
+ * Extract social profile links using 3 strategies:
+ * 1. JSON-LD sameAs — most reliable, used by Wix/Squarespace/modern sites
+ * 2. <a href> anchor tags — standard HTML links
+ * 3. Raw HTML regex — catches social URLs embedded in <script> blocks, Wix config, etc.
+ */
+function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_links: string[]; facebook_links: string[] } {
+  const candidatesIg = new Set<string>();
+  const candidatesFb = new Set<string>();
+
+  // Strategy 1: JSON-LD sameAs
+  for (const url of extractJsonLdSameAs(html)) {
+    if (url.includes("instagram.com")) candidatesIg.add(url);
+    if (url.includes("facebook.com") || url.includes("fb.com")) candidatesFb.add(url);
+  }
+
+  // Strategy 2: <a href> anchor tags (already parsed)
+  for (const link of anchorLinks) {
+    if (link.includes("instagram.com")) candidatesIg.add(link);
+    if (link.includes("facebook.com") || link.includes("fb.com")) candidatesFb.add(link);
+  }
+
+  // Strategy 3: Raw HTML scan — finds URLs inside <script>, JSON config, data attributes
+  for (const match of html.matchAll(INSTAGRAM_RAW_RE)) {
+    candidatesIg.add(match[0]!);
+  }
+  for (const match of html.matchAll(FACEBOOK_RAW_RE)) {
+    candidatesFb.add(`https://www.facebook.com/${match[1]!.split(/[?#]/)[0]}`);
+  }
+
+  return {
+    instagram_links: [...candidatesIg]
+      .map(normalizeInstagramProfile)
+      .filter((u): u is string => u !== null)
+      .filter((u, i, a) => a.indexOf(u) === i)
+      .slice(0, 3),
+    facebook_links: [...candidatesFb]
+      .map(normalizeFacebookProfile)
+      .filter((u): u is string => u !== null)
+      .filter((u, i, a) => a.indexOf(u) === i)
+      .slice(0, 3),
+  };
+}
+
+function extractJsonLdSameAs(html: string): string[] {
+  const urls: string[] = [];
+  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(m[1]!) as Record<string, unknown>;
+      const candidates: unknown[] = [];
+      // Top-level sameAs
+      if (data.sameAs) candidates.push(...(Array.isArray(data.sameAs) ? data.sameAs : [data.sameAs]));
+      // @graph nested
+      if (Array.isArray(data["@graph"])) {
+        for (const node of data["@graph"] as Record<string, unknown>[]) {
+          if (node.sameAs) candidates.push(...(Array.isArray(node.sameAs) ? node.sameAs : [node.sameAs]));
+        }
+      }
+      for (const u of candidates) {
+        if (typeof u === "string" && u.startsWith("http")) urls.push(u);
+      }
+    } catch {
+      // malformed JSON-LD — ignore
+    }
+  }
+  return urls;
+}
+
+function normalizeInstagramProfile(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    if (segs.length !== 1) return null;
+    const handle = segs[0]!.toLowerCase();
+    if (IG_EXCLUDED.has(handle)) return null;
+    if (!/^[a-zA-Z0-9._]{1,30}$/.test(handle)) return null;
+    return `https://www.instagram.com/${handle}`;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeFacebookProfile(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const pathLower = u.pathname.toLowerCase();
+    // Reject share/dialog/plugin paths
+    if (
+      pathLower.includes("/sharer") ||
+      pathLower.includes("share.php") ||
+      pathLower.includes("/dialog/") ||
+      pathLower.includes("/plugins/") ||
+      pathLower.includes("/login") ||
+      pathLower.startsWith("/events/") ||
+      pathLower.startsWith("/groups/")
+    ) return null;
+    const segs = u.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    if (segs.length === 0) return null;
+    if (FB_EXCLUDED.has(segs[0]!.toLowerCase())) return null;
+    // Normalize: strip query/hash, trailing slash
+    const normalized = `https://www.facebook.com/${segs.join("/")}`;
+    return normalized;
+  } catch {
+    return null;
+  }
+}
+
 function extractPhones(html: string) {
   const phones = new Set<string>();
   for (const match of html.matchAll(PHONE_REGEX)) {
@@ -170,14 +291,6 @@ function extractEmails(html: string) {
     if (!value.includes("example.com") && !value.includes("test.com")) emails.add(value);
   }
   return [...emails].slice(0, 3);
-}
-
-export function extractInstagramLinks(links: string[]) {
-  return links
-    .filter((link) => link.includes("instagram.com/"))
-    .map((link) => link.split("?")[0]?.replace(/\/$/, "") ?? link)
-    .filter((link, index, all) => all.indexOf(link) === index)
-    .slice(0, 3);
 }
 
 export function extractInstagramHandle(url: string): string | null {
