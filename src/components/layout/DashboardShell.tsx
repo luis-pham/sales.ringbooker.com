@@ -22,11 +22,11 @@ export function DashboardShell({ profile, children }: { profile: Profile; childr
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar role={profile.role} collapsed={collapsed} onToggle={toggleSidebar} />
-      <div className="min-w-0 flex-1 pb-16 md:pb-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto pb-16 md:pb-0">
         <TopBar profile={profile} />
-        <main className="mx-auto w-full max-w-7xl px-4 py-5 md:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 md:px-6">{children}</main>
       </div>
       <MobileNav role={profile.role} />
     </div>
