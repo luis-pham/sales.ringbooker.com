@@ -94,14 +94,27 @@ export async function searchGoogleMaps(options: SerperSearchOptions): Promise<Se
   let cost = 0;
   let lastPage = 1;
   let hasMore = false;
+  // Serper requires ll (GPS) for page > 1. Derive from first result if not supplied.
+  let llParam = options.llParam;
 
   for (let page = 1; page <= maxPages && results.length < requestedResults; page += 1) {
+    // Cannot paginate without GPS coordinates — stop before hitting the 400 error
+    if (page > 1 && !llParam && options.lat == null && options.lng == null) break;
+
     const pageSize = Math.min(SERPER_MAPS_PAGE_SIZE, requestedResults - results.length);
-    const response = await searchGoogleMapsPage({ ...options, page, num: pageSize });
+    const response = await searchGoogleMapsPage({ ...options, page, num: pageSize, llParam });
     cost += response.estimatedCostUsd;
     lastPage = page;
     hasMore = response.hasMore;
     rawResults.push(...response.rawResults);
+
+    // After page 1, derive ll from the first result with valid coordinates
+    if (page === 1 && !llParam && options.lat == null && options.lng == null) {
+      const firstWithCoords = response.results.find((r) => r.lat != null && r.lng != null);
+      if (firstWithCoords?.lat != null && firstWithCoords?.lng != null) {
+        llParam = `@${firstWithCoords.lat.toFixed(7)},${firstWithCoords.lng.toFixed(7)},14z`;
+      }
+    }
 
     let uniqueAdded = 0;
     for (const lead of response.results) {
