@@ -70,6 +70,11 @@ export type LeadSearchRun = {
   city: string;
   state: string;
   country: string;
+  vertical: string | null;
+  grid_point: string | null;
+  query_variation: string | null;
+  grid_index: number | null;
+  grid_total: number | null;
   provider: "serper" | "google_places";
   max_results: number;
   status: "pending" | "running" | "completed" | "failed" | "cancelled";
@@ -226,6 +231,7 @@ export type JobType =
   | "score_lead"
   | "score_batch"
   | "auto_create_demo"
+  | "auto_search_queue"
   | "cleanup";
 
 export type Job = {

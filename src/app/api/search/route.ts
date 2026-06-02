@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { VERTICAL_QUERIES } from "@/lib/config/search-targets";
 import { getSessionUser } from "@/lib/auth/helpers";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enforceMutationSecurity, enforceRateLimit } from "@/lib/utils/security";
+
+const verticalSchema = z.enum(Object.keys(VERTICAL_QUERIES) as [keyof typeof VERTICAL_QUERIES, ...(keyof typeof VERTICAL_QUERIES)[]]);
 
 const searchSchema = z.object({
   query: z.string().trim().min(2).default("hair salons"),
   city: z.string().trim().min(2).max(100),
   state: z.string().trim().length(2).transform((value) => value.toUpperCase()),
   country: z.string().trim().default("US"),
-  max_results: z.coerce.number().int().min(10).max(200).default(50),
+  max_results: z.coerce.number().int().min(10).max(500).default(50),
+  vertical: verticalSchema.default("hair_salon"),
 });
 
 export async function POST(request: NextRequest) {
@@ -26,7 +30,13 @@ export async function POST(request: NextRequest) {
   const adminClient = createAdminClient();
   const { data: searchRun, error } = await adminClient
     .from("lead_search_runs")
-    .insert({ ...parsed.data, created_by: user.id, provider: "serper", status: "pending" })
+    .insert({
+      ...parsed.data,
+      query_variation: parsed.data.query,
+      created_by: user.id,
+      provider: "serper",
+      status: "pending",
+    })
     .select()
     .single();
   if (error || !searchRun) return NextResponse.json({ error: error?.message ?? "Search run failed" }, { status: 500 });

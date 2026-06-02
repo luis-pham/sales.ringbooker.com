@@ -1,4 +1,5 @@
 import { handleAutoCreateDemo } from "@/lib/jobs/handlers/auto-demo";
+import { handleAutoSearchQueue } from "@/lib/jobs/handlers/auto-search-queue";
 import { handleEnrichLead } from "@/lib/jobs/handlers/enrich";
 import { handleEnrichInstagram } from "@/lib/jobs/handlers/instagram";
 import { handleScoreLead } from "@/lib/jobs/handlers/score";
@@ -21,6 +22,9 @@ export async function dispatchJob(job: Job) {
       return;
     case "auto_create_demo":
       await handleAutoCreateDemo(job.payload as { leadId: string; createdBy?: string | null });
+      return;
+    case "auto_search_queue":
+      await handleAutoSearchQueue();
       return;
     case "score_batch":
     case "cleanup":

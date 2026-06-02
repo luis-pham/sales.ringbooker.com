@@ -20,6 +20,7 @@ const SerperResultSchema = z.object({
   link: z.string().optional(),
   cid: z.union([z.string(), z.number()]).optional(),
   placeId: z.string().optional(),
+  place_id: z.string().optional(),
 });
 
 export type SerperResult = z.infer<typeof SerperResultSchema>;
@@ -43,22 +44,31 @@ export type NormalizedLead = {
 
 export type SerperSearchOptions = {
   query: string;
-  location: string;
+  location?: string;
   country?: string;
   limit?: number;
   lat?: number;
   lng?: number;
+  llParam?: string;
+  page?: number;
+  num?: number;
 };
 
 export type SerperSearchResult = {
   results: NormalizedLead[];
+  hasMore: boolean;
   totalFound: number;
+  page: number;
   estimatedCostUsd: number;
   rawResults: SerperResult[];
 };
 
 function clampRequestedResults(limit: number) {
   return Math.min(Math.max(Math.floor(limit || 1), 1), SERPER_MAPS_MAX_RESULTS);
+}
+
+function clampPageSize(num: number) {
+  return Math.min(Math.max(Math.floor(num || SERPER_MAPS_PAGE_SIZE), 1), SERPER_MAPS_MAX_RESULTS);
 }
 
 function dedupeKey(result: NormalizedLead) {
@@ -72,68 +82,106 @@ function dedupeKey(result: NormalizedLead) {
 export async function searchGoogleMaps(options: SerperSearchOptions): Promise<SerperSearchResult> {
   if (!env.serperApiKey) throw new Error("SERPER_API_KEY missing");
 
+  if (options.page != null || options.num != null || options.llParam) {
+    return searchGoogleMapsPage(options);
+  }
+
   const requestedResults = clampRequestedResults(options.limit ?? 50);
   const maxPages = Math.ceil(requestedResults / SERPER_MAPS_PAGE_SIZE);
   const results: NormalizedLead[] = [];
   const rawResults: SerperResult[] = [];
   const seen = new Set<string>();
+  let cost = 0;
+  let lastPage = 1;
+  let hasMore = false;
 
   for (let page = 1; page <= maxPages && results.length < requestedResults; page += 1) {
     const pageSize = Math.min(SERPER_MAPS_PAGE_SIZE, requestedResults - results.length);
-    const body: Record<string, unknown> = {
-      q: `${options.query.trim()} ${options.location.trim()}`.trim(),
-      gl: options.country ?? "us",
-      hl: "en",
-      num: pageSize,
-      page,
-    };
-
-    if (options.lat != null && options.lng != null) {
-      body.ll = `@${options.lat.toFixed(7)},${options.lng.toFixed(7)},14z`;
-    } else if (page > 1) {
-      break;
-    }
-
-    const response = await fetch("https://google.serper.dev/maps", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": env.serperApiKey,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(45_000),
-    });
-
-    if (response.status === 401 || response.status === 403) throw new Error("Serper auth failed");
-    if (response.status === 429) throw new Error("Serper rate limited");
-    if (!response.ok) throw new Error(`Serper error ${response.status}: ${(await response.text()).slice(0, 200)}`);
-
-    const json = (await response.json()) as { places?: unknown[] };
-    const places = Array.isArray(json.places) ? json.places : [];
-    if (places.length === 0) break;
+    const response = await searchGoogleMapsPage({ ...options, page, num: pageSize });
+    cost += response.estimatedCostUsd;
+    lastPage = page;
+    hasMore = response.hasMore;
+    rawResults.push(...response.rawResults);
 
     let uniqueAdded = 0;
-    for (const place of places) {
-      const parsed = SerperResultSchema.safeParse(place);
-      if (!parsed.success) continue;
-      rawResults.push(parsed.data);
-      const mapped = normalizeSerperResult(parsed.data);
-      if (!mapped) continue;
-      const key = dedupeKey(mapped);
+    for (const lead of response.results) {
+      const key = dedupeKey(lead);
       if (seen.has(key)) continue;
       seen.add(key);
-      results.push(mapped);
+      results.push(lead);
       uniqueAdded += 1;
       if (results.length >= requestedResults) break;
     }
 
-    if (uniqueAdded === 0) break;
+    if (!response.hasMore || uniqueAdded === 0) break;
   }
 
   return {
     results,
+    hasMore,
     totalFound: results.length,
-    estimatedCostUsd: Math.ceil(requestedResults / SERPER_MAPS_PAGE_SIZE) * 0.001,
+    page: lastPage,
+    estimatedCostUsd: cost,
+    rawResults,
+  };
+}
+
+async function searchGoogleMapsPage(options: SerperSearchOptions): Promise<SerperSearchResult> {
+  const page = Math.max(1, Math.floor(options.page ?? 1));
+  const pageSize = clampPageSize(options.num ?? options.limit ?? SERPER_MAPS_PAGE_SIZE);
+  const q = `${options.query.trim()} ${options.location?.trim() ?? ""}`.trim();
+  const body: Record<string, unknown> = {
+    q,
+    gl: options.country ?? "us",
+    hl: "en",
+    num: pageSize,
+    page,
+  };
+
+  if (options.llParam) {
+    body.ll = options.llParam;
+  } else if (options.lat != null && options.lng != null) {
+    body.ll = `@${options.lat.toFixed(7)},${options.lng.toFixed(7)},14z`;
+  }
+
+  const response = await fetch("https://google.serper.dev/maps", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-KEY": env.serperApiKey,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(45_000),
+  });
+
+  if (response.status === 401 || response.status === 403) throw new Error("Serper auth failed");
+  if (response.status === 429) throw new Error("Serper rate limited");
+  if (!response.ok) throw new Error(`Serper error ${response.status}: ${(await response.text()).slice(0, 200)}`);
+
+  const json = (await response.json()) as { places?: unknown[] };
+  const places = Array.isArray(json.places) ? json.places : [];
+  const rawResults: SerperResult[] = [];
+  const results: NormalizedLead[] = [];
+  const seen = new Set<string>();
+
+  for (const place of places) {
+    const parsed = SerperResultSchema.safeParse(place);
+    if (!parsed.success) continue;
+    rawResults.push(parsed.data);
+    const mapped = normalizeSerperResult(parsed.data);
+    if (!mapped) continue;
+    const key = dedupeKey(mapped);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(mapped);
+  }
+
+  return {
+    results,
+    hasMore: places.length >= pageSize,
+    totalFound: results.length,
+    page,
+    estimatedCostUsd: 0.001,
     rawResults,
   };
 }
@@ -143,7 +191,7 @@ function normalizeSerperResult(raw: SerperResult): NormalizedLead | null {
   const { city, state } = parseAddress(raw.address ?? "");
   const lat = typeof raw.latitude === "number" ? raw.latitude : raw.latitude ? Number.parseFloat(raw.latitude) : null;
   const lng = typeof raw.longitude === "number" ? raw.longitude : raw.longitude ? Number.parseFloat(raw.longitude) : null;
-  const placeId = raw.placeId ?? (raw.cid != null ? String(raw.cid) : null);
+  const placeId = raw.placeId ?? raw.place_id ?? (raw.cid != null ? String(raw.cid) : null);
   const website = raw.website ?? raw.link ?? null;
 
   return {
@@ -158,8 +206,8 @@ function normalizeSerperResult(raw: SerperResult): NormalizedLead | null {
     google_place_id: placeId,
     google_maps_url: raw.cid
       ? `https://www.google.com/maps?cid=${raw.cid}`
-      : raw.placeId
-        ? `https://www.google.com/maps/place/?q=place_id:${raw.placeId}`
+      : placeId
+        ? `https://www.google.com/maps/place/?q=place_id:${placeId}`
         : raw.link ?? null,
     rating: raw.rating ?? null,
     review_count: raw.ratingCount ?? raw.reviews ?? null,
