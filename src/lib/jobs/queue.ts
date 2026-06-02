@@ -27,7 +27,10 @@ export async function claimNextJob(workerId: string): Promise<Job | null> {
   const adminClient = createAdminClient();
   const { data, error } = await adminClient.rpc("claim_next_job", { p_worker_id: workerId });
   if (error) throw new Error(`Failed to claim job: ${error.message}`);
-  return (data as Job | null) ?? null;
+  // Supabase returns {id: null, ...} (not JS null) when the SQL function finds no row
+  const job = data as Job | null;
+  if (!job?.id) return null;
+  return job;
 }
 
 export async function releaseStaleJobs(timeoutMinutes = 15): Promise<number> {
