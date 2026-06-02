@@ -5,7 +5,7 @@ import { Pagination } from "@/components/filters/Pagination";
 import { requireAuth } from "@/lib/auth/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const LEAD_STATUSES = [
+const STATUS_OPTIONS = [
   { value: "new", label: "New" },
   { value: "enriching", label: "Enriching" },
   { value: "enriched", label: "Enriched" },
@@ -19,27 +19,54 @@ const LEAD_STATUSES = [
   { value: "disqualified", label: "Disqualified" },
 ];
 
+const SCORE_OPTIONS = [
+  { value: "1", label: "Priority 1" },
+  { value: "2", label: "Priority 2" },
+  { value: "3", label: "Priority 3" },
+];
+
+const TIER_OPTIONS = [
+  { value: "A", label: "Tier A" },
+  { value: "B", label: "Tier B" },
+  { value: "C", label: "Tier C" },
+];
+
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; status?: string; page?: string; per_page?: string }>;
+  searchParams: Promise<{
+    date?: string; status?: string; score?: string; tier?: string;
+    page?: string; per_page?: string;
+  }>;
 }) {
   const profile = await requireAuth();
-  const { date = "all", status = "all", page = "1", per_page = "25" } = await searchParams;
+  const {
+    date = "all", status = "all",
+    score = "all", tier = "all",
+    page = "1", per_page = "25",
+  } = await searchParams;
 
   const perPage = Math.min(200, Math.max(10, Number(per_page) || 25));
   const pageNum = Math.max(1, Number(page) || 1);
   const offset = (pageNum - 1) * perPage;
 
-  let countQuery = createAdminClient()
-    .from("salon_leads")
-    .select("id", { count: "exact", head: true });
+  // Use !inner join only when filtering by score/tier to avoid filtering out unscored leads
+  const needsScoreJoin = score !== "all" || tier !== "all";
+  const selectClause = needsScoreJoin
+    ? "*, lead_scores!inner(score, priority, tier, tier_platform)"
+    : "*, lead_scores(score, priority, tier, tier_platform)";
 
-  let query = createAdminClient()
+  const adminClient = createAdminClient();
+
+  let query = adminClient
     .from("salon_leads")
-    .select("*, lead_scores(*)")
+    .select(selectClause)
     .order("created_at", { ascending: false })
     .range(offset, offset + perPage - 1);
+
+  let countQuery = adminClient
+    .from("salon_leads")
+    .select(needsScoreJoin ? "lead_scores!inner(priority, tier)" : "id", { count: "exact", head: true });
 
   if (profile.role !== "admin") {
     query = query.eq("assigned_to", profile.id);
@@ -54,6 +81,14 @@ export default async function LeadsPage({
     query = query.gte("created_at", since);
     countQuery = countQuery.gte("created_at", since);
   }
+  if (score !== "all") {
+    query = query.eq("lead_scores.priority", Number(score));
+    countQuery = countQuery.eq("lead_scores.priority", Number(score));
+  }
+  if (tier !== "all") {
+    query = query.eq("lead_scores.tier", tier);
+    countQuery = countQuery.eq("lead_scores.tier", tier);
+  }
 
   const [{ data: leads }, { count }] = await Promise.all([query, countQuery]);
   const total = count ?? 0;
@@ -65,7 +100,13 @@ export default async function LeadsPage({
         <p className="text-sm text-muted">Prioritized salons for RingBooker outreach.</p>
       </div>
       <Suspense>
-        <FilterBar statusOptions={LEAD_STATUSES} />
+        <FilterBar
+          selects={[
+            { paramKey: "score", placeholder: "All scores", options: SCORE_OPTIONS },
+            { paramKey: "tier", placeholder: "All tiers", options: TIER_OPTIONS },
+            { paramKey: "status", placeholder: "All statuses", options: STATUS_OPTIONS },
+          ]}
+        />
       </Suspense>
       <div className="rounded-lg border border-border bg-surface">
         <LeadListClient leads={(leads ?? []) as any[]} />

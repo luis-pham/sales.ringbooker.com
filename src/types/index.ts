@@ -243,7 +243,7 @@ export type JobType =
 export type Job = {
   id: string;
   type: JobType;
-  status: "pending" | "processing" | "completed" | "failed" | "dead";
+  status: "pending" | "processing" | "completed" | "failed" | "dead" | "cancelled";
   payload: Record<string, unknown>;
   result: Record<string, unknown> | null;
   error: string | null;

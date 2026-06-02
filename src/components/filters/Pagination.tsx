@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -14,17 +15,20 @@ type Props = {
 export function Pagination({ total, page, perPage }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const totalPages = Math.max(1, Math.ceil(total / perPage));
 
   function set(key: string, value: string | number) {
     const params = new URLSearchParams(searchParams.toString());
     params.set(key, String(value));
     if (key === "per_page") params.set("page", "1");
-    router.push(`?${params.toString()}`);
+    startTransition(() => {
+      router.replace(`?${params.toString()}`);
+    });
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted">
+    <div className={`flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted transition-opacity duration-150 ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
       <div className="flex items-center gap-2">
         <span>Show</span>
         <select

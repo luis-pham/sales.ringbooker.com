@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Bot,
+  BrainCircuit,
   ChevronLeft,
   ChevronRight,
   KanbanSquare,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
   { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin"] },
   { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
+  { href: "/jobs", label: "Jobs", icon: BrainCircuit, roles: ["admin"] },
   { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
 ] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
 

@@ -58,7 +58,9 @@ export default async function SearchPage({
       <SearchPageClient />
       <div className="space-y-3">
         <Suspense>
-          <FilterBar statusOptions={SEARCH_STATUSES} />
+          <FilterBar
+            selects={[{ paramKey: "status", placeholder: "All statuses", options: SEARCH_STATUSES }]}
+          />
         </Suspense>
         <Card>
           <CardHeader>

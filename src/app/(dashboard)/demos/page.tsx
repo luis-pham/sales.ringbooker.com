@@ -61,7 +61,9 @@ export default async function DemosPage({
       </div>
 
       <Suspense>
-        <FilterBar statusOptions={DEMO_STATUSES} />
+        <FilterBar
+            selects={[{ paramKey: "status", placeholder: "All statuses", options: DEMO_STATUSES }]}
+          />
       </Suspense>
 
       <div className="rounded-lg border border-border bg-surface">

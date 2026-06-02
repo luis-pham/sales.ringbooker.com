@@ -2,6 +2,7 @@ import "dotenv/config";
 import { env } from "../src/lib/env";
 import { dispatchJob } from "../src/lib/jobs/dispatch";
 import { claimNextJob, completeJob, enqueueJob, failJob, releaseStaleJobs } from "../src/lib/jobs/queue";
+import { createAdminClient } from "../src/lib/supabase/admin";
 
 let shuttingDown = false;
 const workerId = env.workerId;
@@ -10,28 +11,42 @@ let lastAutoQueueRun = 0;
 const AUTO_QUEUE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AUTO_QUEUE_HOUR_UTC = 2;
 let lastInstagramBatchRun = 0;
-const INSTAGRAM_BATCH_INTERVAL_MS = 60 * 60 * 1000; // every hour
+const INSTAGRAM_BATCH_INTERVAL_MS = 60 * 60 * 1000;
+let lastPauseCheck = 0;
+let isPaused = false;
+const PAUSE_CHECK_INTERVAL_MS = 10_000; // re-read DB every 10s
 
-process.on("SIGINT", () => {
-  shuttingDown = true;
-});
-process.on("SIGTERM", () => {
-  shuttingDown = true;
-});
+process.on("SIGINT", () => { shuttingDown = true; });
+process.on("SIGTERM", () => { shuttingDown = true; });
 
 console.log(`[Worker] Starting ${workerId}`);
 console.log(`[Worker] Poll interval: ${pollIntervalMs}ms`);
 
 while (!shuttingDown) {
   try {
+    await refreshPausedState();
+
+    if (isPaused) {
+      await sleep(pollIntervalMs);
+      continue;
+    }
+
     await releaseStaleJobs(15);
     await maybeEnqueueDailyAutoSearch();
     await maybeEnqueueInstagramBatch();
+
     const job = await claimNextJob(workerId);
     if (!job) {
       await sleep(pollIntervalMs);
       continue;
     }
+
+    // Job may have been cancelled between claim and dispatch — skip it cleanly
+    if ((job as any).status === "cancelled") {
+      console.log(`[Worker] Job ${job.id} was cancelled, skipping`);
+      continue;
+    }
+
     try {
       await dispatchJob(job);
     } catch (error) {
@@ -51,15 +66,33 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function refreshPausedState() {
+  if (Date.now() - lastPauseCheck < PAUSE_CHECK_INTERVAL_MS) return;
+  try {
+    const { data } = await createAdminClient()
+      .from("worker_settings")
+      .select("is_paused")
+      .eq("id", true)
+      .single<{ is_paused: boolean }>();
+
+    const wasPaused = isPaused;
+    isPaused = data?.is_paused ?? false;
+    lastPauseCheck = Date.now();
+
+    if (isPaused && !wasPaused) console.log("[Worker] Paused via admin");
+    if (!isPaused && wasPaused) console.log("[Worker] Resumed via admin");
+  } catch {
+    // non-critical — keep current state
+  }
+}
+
 async function maybeEnqueueDailyAutoSearch() {
   const now = new Date();
   const isAutoQueueTime =
     now.getUTCHours() === AUTO_QUEUE_HOUR_UTC &&
     now.getUTCMinutes() < 5 &&
     Date.now() - lastAutoQueueRun > AUTO_QUEUE_INTERVAL_MS;
-
   if (!isAutoQueueTime) return;
-
   console.log("[Worker] Triggering daily auto search queue");
   await enqueueJob("auto_search_queue", {}, { runAt: now, maxAttempts: 1 });
   lastAutoQueueRun = Date.now();
