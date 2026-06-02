@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ export function TeamClient({
   profiles: Array<{ id: string; email: string; role: string; is_active: boolean }>;
   invitations: Array<{ id: string; email: string; role: string; token: string; accepted_at: string | null }>;
 }) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("outreacher");
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export function TeamClient({
     }
     toast.success(`Invite token: ${json.data?.token}`);
     setEmail("");
-    window.location.reload();
+    router.refresh();
   }
 
   return (

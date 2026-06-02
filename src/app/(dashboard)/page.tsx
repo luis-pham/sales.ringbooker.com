@@ -20,7 +20,7 @@ export default async function PipelinePage() {
         <h1 className="text-xl font-semibold text-text">Pipeline</h1>
         <p className="text-sm text-muted">Track DM sent to converted.</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
           ["Active leads", leads?.length ?? 0],
           ["Replied", leads?.filter((lead) => lead.status === "replied").length ?? 0],

@@ -1,4 +1,4 @@
-import { UserCircle } from "lucide-react";
+import { AccountMenu } from "@/components/layout/AccountMenu";
 import type { Profile } from "@/types";
 
 export function TopBar({ profile }: { profile: Profile }) {
@@ -8,10 +8,7 @@ export function TopBar({ profile }: { profile: Profile }) {
         <div className="text-sm font-semibold text-text">Sales workspace</div>
         <div className="text-xs text-muted">{profile.role}</div>
       </div>
-      <div className="flex min-w-0 items-center gap-2 text-sm text-muted">
-        <UserCircle className="h-5 w-5 shrink-0" />
-        <span className="hidden truncate sm:block">{profile.email}</span>
-      </div>
+      <AccountMenu email={profile.email} />
     </header>
   );
 }

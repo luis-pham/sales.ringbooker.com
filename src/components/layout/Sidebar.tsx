@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   KanbanSquare,
+  LayoutDashboard,
+  Scissors,
   Search,
   Users,
-  Scissors,
-  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
@@ -23,22 +25,43 @@ const navItems = [
   { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
 ] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
 
-export function Sidebar({ role }: { role: UserRole }) {
+export function Sidebar({
+  role,
+  collapsed,
+  onToggle,
+}: {
+  role: UserRole;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const pathname = usePathname();
   const visible = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-border bg-surface md:block">
-      <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
+    <aside
+      className={cn(
+        "hidden flex-col shrink-0 border-r border-border bg-surface transition-[width] duration-200 ease-in-out md:flex",
+        collapsed ? "w-16" : "w-64",
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-16 shrink-0 items-center border-b border-border",
+          collapsed ? "justify-center px-0" : "gap-2 px-5",
+        )}
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-white">
           R
         </div>
-        <div>
-          <div className="text-sm font-semibold text-text">RingBooker Sales</div>
-          <div className="text-xs text-muted">Lead intelligence</div>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-text">RingBooker Sales</div>
+            <div className="text-xs text-muted">Lead intelligence</div>
+          </div>
+        )}
       </div>
-      <nav className="space-y-1 p-3">
+
+      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
         {visible.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
@@ -46,17 +69,41 @@ export function Sidebar({ role }: { role: UserRole }) {
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
-                active ? "bg-violet-50 text-violet-700" : "text-muted hover:bg-surface-muted hover:text-text",
+                "flex h-10 items-center rounded-md text-sm font-medium transition-colors",
+                collapsed ? "justify-center px-0" : "gap-3 px-3",
+                active
+                  ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+                  : "text-muted hover:bg-surface-muted hover:text-text",
               )}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <Icon className="h-4 w-4 shrink-0" />
+              {!collapsed && item.label}
             </Link>
           );
         })}
       </nav>
+
+      <div className="shrink-0 border-t border-border p-2">
+        <button
+          onClick={onToggle}
+          title={collapsed ? "Expand" : "Collapse"}
+          className={cn(
+            "flex h-9 w-full items-center rounded-md text-sm text-muted transition-colors hover:bg-surface-muted hover:text-text",
+            collapsed ? "justify-center" : "gap-2 px-3",
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <>
+              <ChevronLeft className="h-4 w-4" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
     </aside>
   );
 }

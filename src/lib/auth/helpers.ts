@@ -1,28 +1,34 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/types";
 
-async function getProfileByUserId(userId: string) {
+// cache() deduplicates calls within the same request — layout + page share one DB hit
+const getCachedUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user ?? null;
+});
+
+const getCachedProfile = cache(async (userId: string) => {
   const adminClient = createAdminClient();
   const { data: profile } = await adminClient
     .from("profiles")
     .select("*")
     .eq("id", userId)
     .maybeSingle<Profile>();
-
   return profile ?? null;
-}
+});
 
 export async function requireAuth(): Promise<Profile> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) redirect("/login");
 
-  const profile = await getProfileByUserId(user.id);
+  const profile = await getCachedProfile(user.id);
 
   if (!profile) redirect("/unauthorized?reason=profile");
   if (!profile.is_active) redirect("/unauthorized?reason=inactive");
@@ -40,14 +46,11 @@ export async function getSessionUser(): Promise<{
   user: { id: string; email: string } | null;
   profile: Profile | null;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user?.email) return { user: null, profile: null };
 
-  const profile = await getProfileByUserId(user.id);
+  const profile = await getCachedProfile(user.id);
 
   return {
     user: { id: user.id, email: user.email },

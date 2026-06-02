@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Bot, RefreshCw, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function LeadActions({ leadId }: { leadId: string }) {
+  const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
   async function run(action: "enrich" | "score" | "demo") {
@@ -17,7 +19,7 @@ export function LeadActions({ leadId }: { leadId: string }) {
       return;
     }
     toast.success(action === "demo" ? "Demo created" : `${action} queued`);
-    window.location.reload();
+    router.refresh();
   }
 
   return (

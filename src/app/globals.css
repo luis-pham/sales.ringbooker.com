@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   --font-sans: var(--font-inter);
   --color-background: #f8fafc;
@@ -16,6 +18,18 @@
   --color-danger: #ef4444;
   --shadow-card: 0 1px 3px rgb(15 23 42 / 0.08);
   --shadow-modal: 0 20px 60px rgb(15 23 42 / 0.15);
+}
+
+.dark {
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-muted: #334155;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-text: #f1f5f9;
+  --color-muted: #94a3b8;
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.3);
+  --shadow-modal: 0 20px 60px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {

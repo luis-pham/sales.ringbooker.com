@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 export function LogEventForm({ leadId }: { leadId: string }) {
+  const router = useRouter();
   const [type, setType] = useState("dm_sent");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,7 @@ export function LogEventForm({ leadId }: { leadId: string }) {
       return;
     }
     toast.success("Event logged");
-    window.location.reload();
+    router.refresh();
   }
 
   return (
