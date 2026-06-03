@@ -86,7 +86,7 @@ export function SalesClient() {
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ElementType; badge?: number }> = [
-    { id: "today",  label: "Today",     icon: Inbox,        badge: urgentCount || undefined },
+    { id: "today",  label: "My Day",    icon: Inbox,        badge: urgentCount || undefined },
     { id: "all",    label: "All Leads", icon: List },
     { id: "kanban", label: "Kanban",    icon: KanbanSquare },
   ];
