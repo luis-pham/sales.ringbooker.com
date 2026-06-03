@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Copy, ExternalLink, Ghost, Send, SquareArrowOutUpRight, X } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Ghost, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StageBadge } from "./StageBadge";
@@ -183,7 +183,7 @@ export function LeadPanel({
               title="Open full page"
               className="rounded-md p-1.5 text-muted hover:bg-surface-muted hover:text-text"
             >
-              <SquareArrowOutUpRight className="h-4 w-4" />
+              <ExternalLink className="h-4 w-4" />
             </a>
             <button
               onClick={onClose}

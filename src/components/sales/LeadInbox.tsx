@@ -1,6 +1,6 @@
 "use client";
 
-import { SquareArrowOutUpRight } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { StageBadge } from "./StageBadge";
 import { URGENCY_COLOR } from "@/lib/stageConfig";
 import { getNextAction } from "@/lib/getNextAction";
@@ -82,7 +82,7 @@ export function LeadInbox({
                       title="Open full page"
                       className="text-muted hover:text-violet-700"
                     >
-                      <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   </div>
                 </div>
