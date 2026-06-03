@@ -2,8 +2,15 @@ import { crawlWebsite } from "@/lib/enrichment/website-crawler";
 import { searchWebForChannels, type DiscoveredChannels } from "@/lib/enrichment/web-discovery";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { getPlaceDetails } from "@/lib/providers/google-places";
+import { fetchPlaceReviews } from "@/lib/providers/serper-reviews";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SalonLead } from "@/types";
+
+function extractCid(mapsUrl: string | null): string | null {
+  if (!mapsUrl) return null;
+  const m = mapsUrl.match(/[?&]cid=(\d+)/);
+  return m?.[1] ?? null;
+}
 
 export type EnrichLeadPayload = {
   leadId: string;
@@ -75,6 +82,22 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     ].filter(Boolean).join(", ") || "nothing found"}`);
   } else if (hasNoOnlinePresence) {
     console.log(`[Enrich] Skip web discovery for ${lead.id}: below quality gate (rating/reviews/phone)`);
+  }
+
+  // Review activity: for promising leads, fetch recent Google reviews to verify the
+  // business is still active (recency) and whether the owner engages (responds). Gated
+  // to rating >= 4 and >= 50 reviews so we only spend on leads worth pursuing.
+  if ((lead.rating ?? 0) >= 4.0 && (lead.review_count ?? 0) >= 50) {
+    const reviews = await fetchPlaceReviews(
+      { placeId: lead.google_place_id, cid: extractCid(lead.google_maps_url) },
+      lead.id,
+    );
+    if (reviews.lastReviewAt) updates.last_review_at = reviews.lastReviewAt.toISOString();
+    if (reviews.ownerRespondsToReviews) updates.owner_responds_reviews = true;
+    console.log(
+      `[Enrich] Reviews for ${lead.id}: last=${reviews.lastReviewAt?.toISOString().slice(0, 10) ?? "?"}, ` +
+      `ownerResponds=${reviews.ownerRespondsToReviews}, n=${reviews.reviewsFetched}`,
+    );
   }
 
   const websiteUrl = (updates.website_url as string | undefined) ?? lead.website_url;

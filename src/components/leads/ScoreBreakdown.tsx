@@ -3,7 +3,7 @@ import type { ScoringFactors } from "@/types";
 
 const labels: Record<keyof ScoringFactors, { label: string; max: number }> = {
   noOnlineBooking: { label: "No online booking", max: 25 },
-  businessAge: { label: "Establishment", max: 13 },
+  activityRecency: { label: "Activity recency", max: 13 },
   ratingScore: { label: "Rating", max: 15 },
   reviewCount: { label: "Review count", max: 12 },
   afterHoursGap: { label: "After-hours gap", max: 12 },

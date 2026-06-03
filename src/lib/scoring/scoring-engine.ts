@@ -20,7 +20,7 @@ export type ScoringResult = Pick<
 >;
 
 export function calculateScore(input: ScoringInput): ScoringResult {
-  const { lead, websiteSnapshot, instagramSnapshot, sourceSnapshot } = input;
+  const { lead, websiteSnapshot, instagramSnapshot } = input;
 
   const hasBookingPlatform =
     Boolean(websiteSnapshot?.has_online_booking) ||
@@ -40,19 +40,28 @@ export function calculateScore(input: ScoringInput): ScoringResult {
 
   const noOnlineBooking = !hasBookingPlatform && hasOnlineFootprint ? 25 : 0;
 
+  const lastReviewAt = lead.last_review_at ? new Date(lead.last_review_at) : null;
+
   const factors: ScoringFactors = {
     noOnlineBooking,
-    businessAge: scoreBusinessAge(sourceSnapshot?.raw, lead.review_count),
+    activityRecency: scoreActivityRecency(lastReviewAt, lead.review_count),
     ratingScore: scoreRating(lead.rating),
     reviewCount: scoreReviewCount(lead.review_count),
     afterHoursGap: scoreAfterHoursGap(lead),
     instagramActive: scoreInstagramActive(instagramSnapshot),
     hasWebsite: lead.website_url ? 8 : 0,
-    respondsToReviews: scoreRespondsToReviews(sourceSnapshot?.raw),
+    respondsToReviews: lead.owner_responds_reviews ? 5 : 0,
   };
 
   const score = Math.min(100, Object.values(factors).reduce((sum, value) => sum + value, 0));
-  const priority = score >= 70 ? 1 : score >= 50 ? 2 : 3;
+  let priority: 1 | 2 | 3 = score >= 70 ? 1 : score >= 50 ? 2 : 3;
+
+  // Hard signal: a business with no reviews in 3+ years is likely closed/inactive —
+  // don't spend outreach on it regardless of other factors.
+  if (lastReviewAt && Date.now() - lastReviewAt.getTime() > 3 * 365 * 24 * 60 * 60 * 1000) {
+    priority = 3;
+  }
+
   const tier = detectTier(websiteSnapshot, instagramSnapshot);
 
   return {
@@ -67,35 +76,24 @@ export function calculateScore(input: ScoringInput): ScoringResult {
   };
 }
 
-function scoreBusinessAge(raw: Record<string, unknown> | null | undefined, reviewCount: number | null) {
-  const reviews = Array.isArray(raw?.reviews) ? raw.reviews : [];
-  const dates = reviews
-    .map((review) => {
-      if (!review || typeof review !== "object") return null;
-      const value = (review as { date?: unknown; time?: unknown }).date ?? (review as { time?: unknown }).time;
-      if (typeof value === "number") return new Date(value * 1000);
-      if (typeof value === "string") return new Date(value);
-      return null;
-    })
-    .filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
-
-  // Primary: actual review dates (available if a richer source provides them)
-  if (dates.length > 0) {
-    const oldest = Math.min(...dates.map((date) => date.getTime()));
-    const yearsOld = (Date.now() - oldest) / (1000 * 60 * 60 * 24 * 365);
-    if (yearsOld >= 3) return 13;
-    if (yearsOld >= 1) return 9;
-    if (yearsOld >= 0.5) return 5;
-    return 2;
+function scoreActivityRecency(lastReviewAt: Date | null, reviewCount: number | null) {
+  // Primary: how recently the salon got a review = is it still active? (max 13)
+  if (lastReviewAt) {
+    const months = (Date.now() - lastReviewAt.getTime()) / (1000 * 60 * 60 * 24 * 30);
+    if (months <= 3) return 13;   // very active
+    if (months <= 12) return 10;  // active this year
+    if (months <= 24) return 5;   // slowing down
+    if (months <= 36) return 2;   // stale
+    return 0;                      // 3+ years silent (also capped to P3 below)
   }
 
-  // Fallback: Serper Maps returns no review dates, so use review volume as an
-  // establishment proxy — high review counts indicate a long-running business.
+  // Fallback: reviews not fetched (lead below the review gate) — use review volume
+  // as a weak establishment proxy so the factor isn't flat for everyone.
   const c = reviewCount ?? 0;
-  if (c >= 150) return 11;
-  if (c >= 60) return 8;
-  if (c >= 20) return 5;
-  return 3;
+  if (c >= 150) return 9;
+  if (c >= 60) return 6;
+  if (c >= 20) return 4;
+  return 2;
 }
 
 function scoreRating(rating: number | null) {
@@ -133,17 +131,6 @@ function scoreInstagramActive(instagram: ScoringInput["instagramSnapshot"]) {
   if (instagram.active_last_30_days) return 10;
   if (instagram.followers && instagram.followers > 0) return 5;
   return 3;
-}
-
-function scoreRespondsToReviews(raw: Record<string, unknown> | null | undefined) {
-  const reviews = Array.isArray(raw?.reviews) ? raw.reviews : [];
-  return reviews.some((review) => {
-    if (!review || typeof review !== "object") return false;
-    const row = review as Record<string, unknown>;
-    return Boolean(row.ownerResponse || row.owner_response || row.replyTime);
-  })
-    ? 5
-    : 0;
 }
 
 function detectTier(

@@ -51,6 +51,8 @@ export type SalonLead = {
   hours_raw: Record<string, unknown> | null;
   is_open_sunday: boolean | null;
   closes_before_6pm: boolean | null;
+  last_review_at: string | null;
+  owner_responds_reviews: boolean;
   has_website: boolean;
   has_phone: boolean;
   status: LeadStatus;
@@ -137,7 +139,7 @@ export type InstagramSnapshot = {
 
 export type ScoringFactors = {
   noOnlineBooking: number;
-  businessAge: number;
+  activityRecency: number;
   ratingScore: number;
   reviewCount: number;
   afterHoursGap: number;
