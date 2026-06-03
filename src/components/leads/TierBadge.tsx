@@ -14,7 +14,7 @@ const labels: Record<string, string> = {
 };
 
 export function TierBadge({ tier, platform }: { tier?: "A" | "B" | "C" | null; platform?: string | null }) {
-  if (!tier) return <Badge>Tier unknown</Badge>;
+  if (!tier) return <span className="text-xs text-muted">—</span>;
   return (
     <Badge variant={tier === "A" ? "violet" : tier === "B" ? "blue" : "slate"}>
       Tier {tier}

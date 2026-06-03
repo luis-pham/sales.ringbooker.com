@@ -73,7 +73,9 @@ export default async function SearchPage({
                   <tr>
                     <th className="px-4 py-3">Location</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Found</th>
                     <th className="px-4 py-3">Imported</th>
+                    <th className="px-4 py-3">Skipped</th>
                     <th className="px-4 py-3">Created</th>
                   </tr>
                 </thead>
@@ -84,14 +86,26 @@ export default async function SearchPage({
                         <Link href={`/search/${run.id}`} className="font-medium text-violet-700 hover:underline">
                           {run.city}, {run.state}
                         </Link>
+                        {run.query_variation && run.query_variation !== run.query && (
+                          <div className="text-xs text-muted">{run.query_variation}</div>
+                        )}
                       </td>
-                      <td className="px-4 py-3">{run.status}</td>
-                      <td className="px-4 py-3">{run.total_imported ?? 0}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                          run.status === "completed" ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                          run.status === "running"   ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" :
+                          run.status === "failed"    ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400" :
+                          "bg-surface-muted text-muted"
+                        }`}>{run.status}</span>
+                      </td>
+                      <td className="px-4 py-3 font-medium">{run.total_found ?? "—"}</td>
+                      <td className="px-4 py-3 text-green-700 dark:text-green-400 font-medium">{run.total_imported ?? 0}</td>
+                      <td className="px-4 py-3 text-muted">{(run.total_skipped ?? 0) + (run.total_duplicate ?? 0)}</td>
                       <td className="px-4 py-3 text-muted">{new Date(run.created_at).toLocaleString()}</td>
                     </tr>
                   ))}
                   {(runs ?? []).length === 0 && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-muted text-sm">No runs found.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">No runs found.</td></tr>
                   )}
                 </tbody>
               </table>
