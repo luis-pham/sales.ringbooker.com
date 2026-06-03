@@ -2,6 +2,24 @@ import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { SalonLead } from "@/types";
 
+function toSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
+function extractSlug(demoUrl: string): string | null {
+  try {
+    const path = new URL(demoUrl).pathname.replace(/^\//, "").split("?")[0];
+    return path || null;
+  } catch {
+    return null;
+  }
+}
+
 export type DemoPayload = {
   salesLeadId: string;
   salonName: string;
@@ -61,9 +79,9 @@ export async function callRingBookerDemoAPI(payload: DemoPayload): Promise<DemoR
     };
   }
 
-  const params = new URLSearchParams({ salon: payload.salonName, city: payload.city });
+  const slug = toSlug(`${payload.salonName} ${payload.city}`);
   return {
-    demoUrl: `https://ringbooker.com/demo/hair?${params.toString()}`,
+    demoUrl: `https://ringbooker.com/${slug}`,
     requestId: null,
     sessionId: null,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -85,11 +103,14 @@ export async function createDemo(leadId: string, createdBy: string | null, optio
     .eq("status", "prepared")
     .maybeSingle<{ id: string }>();
 
+  const demoSlug = extractSlug(result.demoUrl);
+
   if (existing) {
     await adminClient
       .from("ringbooker_demos")
       .update({
         demo_url: result.demoUrl,
+        demo_slug: demoSlug,
         demo_config: payload,
         demo_url_params: { requestId: result.requestId, sessionId: result.sessionId },
         expires_at: result.expiresAt,
@@ -106,6 +127,7 @@ export async function createDemo(leadId: string, createdBy: string | null, optio
       demo_vertical: payload.demoVertical,
       demo_config: payload,
       demo_url: result.demoUrl,
+      demo_slug: demoSlug,
       demo_url_params: { requestId: result.requestId, sessionId: result.sessionId },
       status: "prepared",
       expires_at: result.expiresAt,
