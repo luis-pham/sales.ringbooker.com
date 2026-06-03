@@ -30,7 +30,7 @@ export function calculateScore(input: ScoringInput): ScoringResult {
 
   const factors: ScoringFactors = {
     noOnlineBooking,
-    businessAge: scoreBusinessAge(sourceSnapshot?.raw),
+    businessAge: scoreBusinessAge(sourceSnapshot?.raw, lead.review_count),
     ratingScore: scoreRating(lead.rating),
     reviewCount: scoreReviewCount(lead.review_count),
     afterHoursGap: scoreAfterHoursGap(lead),
@@ -55,7 +55,7 @@ export function calculateScore(input: ScoringInput): ScoringResult {
   };
 }
 
-function scoreBusinessAge(raw: Record<string, unknown> | null | undefined) {
+function scoreBusinessAge(raw: Record<string, unknown> | null | undefined, reviewCount: number | null) {
   const reviews = Array.isArray(raw?.reviews) ? raw.reviews : [];
   const dates = reviews
     .map((review) => {
@@ -67,35 +67,51 @@ function scoreBusinessAge(raw: Record<string, unknown> | null | undefined) {
     })
     .filter((date): date is Date => Boolean(date && !Number.isNaN(date.getTime())));
 
-  if (dates.length === 0) return 5;
-  const oldest = Math.min(...dates.map((date) => date.getTime()));
-  const yearsOld = (Date.now() - oldest) / (1000 * 60 * 60 * 24 * 365);
-  if (yearsOld >= 3) return 15;
-  if (yearsOld >= 1) return 10;
-  if (yearsOld >= 0.5) return 5;
-  return 0;
+  // Primary: actual review dates (available if a richer source provides them)
+  if (dates.length > 0) {
+    const oldest = Math.min(...dates.map((date) => date.getTime()));
+    const yearsOld = (Date.now() - oldest) / (1000 * 60 * 60 * 24 * 365);
+    if (yearsOld >= 3) return 13;
+    if (yearsOld >= 1) return 9;
+    if (yearsOld >= 0.5) return 5;
+    return 2;
+  }
+
+  // Fallback: Serper Maps returns no review dates, so use review volume as an
+  // establishment proxy — high review counts indicate a long-running business.
+  const c = reviewCount ?? 0;
+  if (c >= 150) return 11;
+  if (c >= 60) return 8;
+  if (c >= 20) return 5;
+  return 3;
 }
 
 function scoreRating(rating: number | null) {
+  // Monotonic: higher reputation = better lead (no sweet-spot penalty)
   if (!rating) return 0;
-  if (rating >= 4.0 && rating <= 4.5) return 15;
-  if (rating > 4.5) return 10;
-  if (rating >= 3.5) return 5;
+  if (rating >= 4.5) return 15;
+  if (rating >= 4.0) return 12;
+  if (rating >= 3.5) return 7;
+  if (rating >= 3.0) return 3;
   return 0;
 }
 
 function scoreReviewCount(count: number | null) {
+  // Monotonic: more reviews = more established = better lead (never drops to 0)
   if (!count) return 0;
-  if (count >= 50 && count <= 300) return 10;
-  if ((count >= 30 && count < 50) || (count > 300 && count <= 500)) return 5;
-  if (count >= 15 && count < 30) return 3;
-  return 0;
+  if (count >= 200) return 12;
+  if (count >= 100) return 10;
+  if (count >= 50) return 8;
+  if (count >= 20) return 5;
+  if (count >= 5) return 2;
+  return 1;
 }
 
 function scoreAfterHoursGap(lead: SalonLead) {
-  if (lead.closes_before_6pm === true) return 10;
-  if (lead.is_open_sunday === false) return 8;
-  if (lead.closes_before_6pm === null && lead.is_open_sunday === null) return 5;
+  // Core product signal — closing early / no Sunday = missed after-hours calls
+  if (lead.closes_before_6pm === true) return 12;
+  if (lead.is_open_sunday === false) return 9;
+  if (lead.closes_before_6pm === null && lead.is_open_sunday === null) return 6;
   return 0;
 }
 
@@ -114,7 +130,7 @@ function scoreRespondsToReviews(raw: Record<string, unknown> | null | undefined)
     const row = review as Record<string, unknown>;
     return Boolean(row.ownerResponse || row.owner_response || row.replyTime);
   })
-    ? 7
+    ? 5
     : 0;
 }
 

@@ -26,7 +26,7 @@ export function LeadListClient({ leads }: { leads: LeadRow[] }) {
           <tr>
             <th className="px-4 py-3">Salon</th>
             <th className="px-4 py-3">Score</th>
-            <th className="px-4 py-3">Tier</th>
+            <th className="px-4 py-3">Integration</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Rating</th>
             <th className="px-4 py-3">Contact</th>

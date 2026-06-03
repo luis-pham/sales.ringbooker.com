@@ -3,13 +3,13 @@ import type { ScoringFactors } from "@/types";
 
 const labels: Record<keyof ScoringFactors, { label: string; max: number }> = {
   noOnlineBooking: { label: "No online booking", max: 25 },
-  businessAge: { label: "Business age", max: 15 },
+  businessAge: { label: "Establishment", max: 13 },
   ratingScore: { label: "Rating", max: 15 },
-  reviewCount: { label: "Review count", max: 10 },
-  afterHoursGap: { label: "After-hours gap", max: 10 },
+  reviewCount: { label: "Review count", max: 12 },
+  afterHoursGap: { label: "After-hours gap", max: 12 },
   instagramActive: { label: "Instagram active", max: 10 },
   hasWebsite: { label: "Has website", max: 8 },
-  respondsToReviews: { label: "Responds to reviews", max: 7 },
+  respondsToReviews: { label: "Responds to reviews", max: 5 },
 };
 
 export function ScoreBreakdown({ factors }: { factors: ScoringFactors }) {

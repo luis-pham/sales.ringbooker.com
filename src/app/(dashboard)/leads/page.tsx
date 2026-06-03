@@ -26,9 +26,9 @@ const SCORE_OPTIONS = [
 ];
 
 const TIER_OPTIONS = [
-  { value: "A", label: "Tier A" },
-  { value: "B", label: "Tier B" },
-  { value: "C", label: "Tier C" },
+  { value: "A", label: "Direct booking" },
+  { value: "B", label: "Link booking" },
+  { value: "C", label: "Capture only" },
 ];
 
 export default async function LeadsPage({
@@ -103,7 +103,7 @@ export default async function LeadsPage({
         <FilterBar
           selects={[
             { paramKey: "score", placeholder: "All scores", options: SCORE_OPTIONS },
-            { paramKey: "tier", placeholder: "All tiers", options: TIER_OPTIONS },
+            { paramKey: "tier", placeholder: "All integrations", options: TIER_OPTIONS },
             { paramKey: "status", placeholder: "All statuses", options: STATUS_OPTIONS },
           ]}
         />
