@@ -101,6 +101,16 @@ export async function handleSearchRun(payload: SearchRunPayload) {
         skipped += 1;
         continue;
       }
+      // Quality gate: minimum rating and review count
+      if ((lead.rating ?? 0) < 3.5 || (lead.review_count ?? 0) < 30) {
+        skipped += 1;
+        continue;
+      }
+      // Require a website — without one we cannot crawl for social links (Instagram/Facebook/TikTok)
+      if (!lead.website_url) {
+        skipped += 1;
+        continue;
+      }
 
       const insertResult = await insertLead(adminClient, lead, run, searchRunId);
       if (insertResult.status === "duplicate") {

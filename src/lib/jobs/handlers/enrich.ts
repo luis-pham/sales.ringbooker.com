@@ -154,14 +154,40 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     );
   }
 
+  // Check if any social presence was found from any source
+  const finalInstagram = (updates.instagram_url as string | undefined) ?? lead.instagram_url;
+  const finalFacebook  = (updates.facebook_url  as string | undefined) ?? lead.facebook_url;
+  const finalTiktok    = (updates.tiktok_url    as string | undefined) ?? lead.tiktok_url;
+
+  const websiteSnapshot = await adminClient
+    .from("website_snapshots")
+    .select("instagram_links, facebook_links, tiktok_links")
+    .eq("lead_id", lead.id)
+    .maybeSingle<{ instagram_links: string[]; facebook_links: string[]; tiktok_links: string[] }>();
+
+  const snapshotHasSocial =
+    (websiteSnapshot.data?.instagram_links?.length ?? 0) > 0 ||
+    (websiteSnapshot.data?.facebook_links?.length  ?? 0) > 0 ||
+    (websiteSnapshot.data?.tiktok_links?.length    ?? 0) > 0;
+
+  const hasSocial = !!finalInstagram || !!finalFacebook || !!finalTiktok || snapshotHasSocial;
+
+  // Disqualify leads with no social presence found anywhere after full enrichment
+  const finalStatus = hasSocial ? "enriched" : "disqualified";
+  if (!hasSocial) {
+    console.log(`[Enrich] Disqualifying ${lead.id} (${lead.name}): no social found after full enrichment`);
+  }
+
   await adminClient
     .from("salon_leads")
     .update({
       ...updates,
-      status: "enriched",
+      status: finalStatus,
       enriched_at: new Date().toISOString(),
     })
     .eq("id", lead.id);
+
+  if (!hasSocial) return; // no point scoring a disqualified lead
 
   // Instagram: do NOT queue Apify here — score handler will gate by priority (P1/P2 only).
   // We just ensure instagram_url is saved so score handler can read it.
