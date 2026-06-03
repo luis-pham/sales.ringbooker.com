@@ -59,9 +59,21 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <CardTitle>Overview</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <Info label="Phone" value={lead.phone} />
-              <Info label="Website" value={lead.website_url} />
-              <Info label="Instagram" value={lead.instagram_url} />
+              <Info label="Phone" value={lead.phone ? (
+                <a href={`tel:${lead.phone}`} className="text-violet-700 hover:underline dark:text-violet-400">{lead.phone}</a>
+              ) : null} />
+              <Info label="Website" value={lead.website_url ? (
+                <a href={lead.website_url} target="_blank" rel="noopener noreferrer" className="break-all text-violet-700 hover:underline dark:text-violet-400">{lead.website_url}</a>
+              ) : null} />
+              <Info label="Instagram" value={lead.instagram_url ? (
+                <a href={lead.instagram_url} target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline dark:text-violet-400">{lead.instagram_url}</a>
+              ) : null} />
+              <Info label="Facebook" value={lead.facebook_url ? (
+                <a href={lead.facebook_url} target="_blank" rel="noopener noreferrer" className="break-all text-violet-700 hover:underline dark:text-violet-400">{lead.facebook_url}</a>
+              ) : null} />
+              <Info label="TikTok" value={lead.tiktok_url ? (
+                <a href={lead.tiktok_url} target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline dark:text-violet-400">{lead.tiktok_url}</a>
+              ) : null} />
               <Info label="Google rating" value={`${lead.rating ?? "-"} · ${lead.review_count ?? 0} reviews`} />
               <Info label="Sunday" value={lead.is_open_sunday == null ? "Unknown" : lead.is_open_sunday ? "Open" : "Closed"} />
               <Info label="Closes before 6PM" value={lead.closes_before_6pm == null ? "Unknown" : lead.closes_before_6pm ? "Yes" : "No"} />
