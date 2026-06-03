@@ -58,22 +58,22 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     console.log(`[Enrich] Skip Places API for ${lead.id}: ${skipReason}`);
   }
 
-  // Web discovery: when Maps returned no website/socials for a high-quality salon,
-  // run a Serper web search to find the salon's channels. Gated tightly to control cost:
-  // rating >= 4.0, >= 50 reviews, has phone.
+  // Gate for Serper web discovery: rating >= 3.5, >= 30 reviews, has phone.
+  const passesDiscoveryGate =
+    (lead.rating ?? 0) >= 3.5 && (lead.review_count ?? 0) >= 30 && !!lead.phone;
+
   let discovered: DiscoveredChannels | null = null;
   const websiteSoFar = (updates.website_url as string | undefined) ?? lead.website_url;
   const hasNoOnlinePresence = !websiteSoFar && !lead.instagram_url && !lead.facebook_url;
-  const passesDiscoveryGate =
-    (lead.rating ?? 0) >= 4.0 && (lead.review_count ?? 0) >= 50 && !!lead.phone;
 
+  // Case 1: No website at all in Maps → run web search to find website + socials
   if (hasNoOnlinePresence && passesDiscoveryGate) {
     discovered = await searchWebForChannels(lead.name, lead.city ?? "", lead.id);
     if (discovered.website) updates.website_url = discovered.website;
     if (discovered.instagram) updates.instagram_url = discovered.instagram;
     if (discovered.facebook) updates.facebook_url = discovered.facebook;
     if (discovered.tiktok) updates.tiktok_url = discovered.tiktok;
-    console.log(`[Enrich] Web discovery for ${lead.id}: ${[
+    console.log(`[Enrich] Web discovery (no website) for ${lead.id}: ${[
       discovered.website && "website",
       discovered.instagram && "instagram",
       discovered.facebook && "facebook",
@@ -84,10 +84,8 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     console.log(`[Enrich] Skip web discovery for ${lead.id}: below quality gate (rating/reviews/phone)`);
   }
 
-  // Review activity: for promising leads, fetch recent Google reviews to verify the
-  // business is still active (recency) and whether the owner engages (responds). Gated
-  // to rating >= 4 and >= 50 reviews so we only spend on leads worth pursuing.
-  if ((lead.rating ?? 0) >= 4.0 && (lead.review_count ?? 0) >= 50) {
+  // Review activity: gate lowered to match discovery gate (3.5 / 30).
+  if ((lead.rating ?? 0) >= 3.5 && (lead.review_count ?? 0) >= 30) {
     const reviews = await fetchPlaceReviews(
       { placeId: lead.google_place_id, cid: extractCid(lead.google_maps_url) },
       lead.id,
@@ -103,8 +101,6 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
   const websiteUrl = (updates.website_url as string | undefined) ?? lead.website_url;
   if (websiteUrl) {
     const crawl = await crawlWebsite(websiteUrl, lead.id);
-    // Merge booking platforms found via web search (e.g. vagaro.com/salon) into the
-    // crawl result — a booking link from the web search counts as having a booking platform.
     const bookingUrls = [...new Set([...crawl.booking_urls, ...(discovered?.bookingUrls ?? [])])].slice(0, 5);
     const hasOnlineBooking = crawl.has_online_booking || bookingUrls.length > 0;
     await adminClient.from("website_snapshots").upsert(
@@ -134,10 +130,36 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     if (!lead.instagram_url && crawl.instagram_links[0]) updates.instagram_url = crawl.instagram_links[0];
     if (!lead.facebook_url && crawl.facebook_links[0]) updates.facebook_url = crawl.facebook_links[0];
     if (!lead.tiktok_url && crawl.tiktok_links[0]) updates.tiktok_url = crawl.tiktok_links[0];
+
+    // Case 2: Has website but crawl found no social → run web search to find socials
+    const crawlFoundSocial =
+      crawl.instagram_links.length > 0 ||
+      crawl.facebook_links.length > 0 ||
+      crawl.tiktok_links.length > 0;
+    const leadHasSocial =
+      !!(updates.instagram_url ?? lead.instagram_url) ||
+      !!(updates.facebook_url  ?? lead.facebook_url)  ||
+      !!(updates.tiktok_url    ?? lead.tiktok_url);
+
+    if (!crawlFoundSocial && !leadHasSocial && passesDiscoveryGate && !discovered) {
+      discovered = await searchWebForChannels(lead.name, lead.city ?? "", lead.id);
+      if (discovered.instagram && !updates.instagram_url) updates.instagram_url = discovered.instagram;
+      if (discovered.facebook  && !updates.facebook_url)  updates.facebook_url  = discovered.facebook;
+      if (discovered.tiktok    && !updates.tiktok_url)    updates.tiktok_url    = discovered.tiktok;
+      if (discovered.bookingUrls.length > 0) {
+        const merged = [...new Set([...bookingUrls, ...discovered.bookingUrls])].slice(0, 5);
+        await adminClient.from("website_snapshots")
+          .update({ booking_urls: merged, has_online_booking: true })
+          .eq("lead_id", lead.id);
+      }
+      console.log(`[Enrich] Web discovery (no social on website) for ${lead.id}: ${[
+        discovered.instagram && "instagram",
+        discovered.facebook  && "facebook",
+        discovered.tiktok    && "tiktok",
+        discovered.bookingUrls.length && `${discovered.bookingUrls.length} booking`,
+      ].filter(Boolean).join(", ") || "nothing found"}`);
+    }
   } else if (discovered && (discovered.bookingUrls.length > 0 || discovered.instagram || discovered.facebook || discovered.tiktok)) {
-    // No crawlable website, but the web search found booking/social signals.
-    // Persist them as a snapshot so the scoring engine can detect online booking
-    // and platform tier even without a website to crawl.
     await adminClient.from("website_snapshots").upsert(
       {
         lead_id: lead.id,
@@ -154,40 +176,14 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     );
   }
 
-  // Check if any social presence was found from any source
-  const finalInstagram = (updates.instagram_url as string | undefined) ?? lead.instagram_url;
-  const finalFacebook  = (updates.facebook_url  as string | undefined) ?? lead.facebook_url;
-  const finalTiktok    = (updates.tiktok_url    as string | undefined) ?? lead.tiktok_url;
-
-  const websiteSnapshot = await adminClient
-    .from("website_snapshots")
-    .select("instagram_links, facebook_links, tiktok_links")
-    .eq("lead_id", lead.id)
-    .maybeSingle<{ instagram_links: string[]; facebook_links: string[]; tiktok_links: string[] }>();
-
-  const snapshotHasSocial =
-    (websiteSnapshot.data?.instagram_links?.length ?? 0) > 0 ||
-    (websiteSnapshot.data?.facebook_links?.length  ?? 0) > 0 ||
-    (websiteSnapshot.data?.tiktok_links?.length    ?? 0) > 0;
-
-  const hasSocial = !!finalInstagram || !!finalFacebook || !!finalTiktok || snapshotHasSocial;
-
-  // Disqualify leads with no social presence found anywhere after full enrichment
-  const finalStatus = hasSocial ? "enriched" : "disqualified";
-  if (!hasSocial) {
-    console.log(`[Enrich] Disqualifying ${lead.id} (${lead.name}): no social found after full enrichment`);
-  }
-
   await adminClient
     .from("salon_leads")
     .update({
       ...updates,
-      status: finalStatus,
+      status: "enriched",
       enriched_at: new Date().toISOString(),
     })
     .eq("id", lead.id);
-
-  if (!hasSocial) return; // no point scoring a disqualified lead
 
   // Instagram: do NOT queue Apify here — score handler will gate by priority (P1/P2 only).
   // We just ensure instagram_url is saved so score handler can read it.
