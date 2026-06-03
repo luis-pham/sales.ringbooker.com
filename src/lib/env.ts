@@ -29,6 +29,8 @@ export const env = {
   serperApiKey: getServerEnv("SERPER_API_KEY"),
   googlePlacesApiKey: getServerEnv("GOOGLE_PLACES_API_KEY"),
   apifyApiToken: getServerEnv("APIFY_API_TOKEN"),
+  cloudflareAccountId: getServerEnv("CLOUDFLARE_ACCOUNT_ID"),
+  cloudflareBrowserToken: getServerEnv("CLOUDFLARE_BROWSER_TOKEN"),
   ringbookerInternalApiUrl: getServerEnv("RINGBOOKER_INTERNAL_API_URL"),
   ringbookerInternalApiKey: getServerEnv("RINGBOOKER_INTERNAL_API_KEY"),
   ringbookerWebhookSecret: getServerEnv("RINGBOOKER_WEBHOOK_SECRET"),

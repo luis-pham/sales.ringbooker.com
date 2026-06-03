@@ -52,7 +52,7 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
 
   const websiteUrl = (updates.website_url as string | undefined) ?? lead.website_url;
   if (websiteUrl) {
-    const crawl = await crawlWebsite(websiteUrl);
+    const crawl = await crawlWebsite(websiteUrl, lead.id);
     await adminClient.from("website_snapshots").upsert(
       {
         lead_id: lead.id,

@@ -2,6 +2,8 @@ import * as cheerio from "cheerio";
 import type { PlatformHit } from "@/types";
 import { detectPlatforms } from "@/lib/enrichment/platform-detector";
 import { normalizePhone } from "@/lib/providers/serper";
+import { env } from "@/lib/env";
+import { logApiCall, API_COSTS } from "@/lib/api-logger";
 
 export type CrawlResult = {
   url: string;
@@ -64,7 +66,7 @@ const FB_EXCLUDED = new Set(["login", "recover", "help", "watch", "gaming", "mar
 // TikTok path segments that are NOT profile URLs
 const TT_EXCLUDED = new Set(["share", "embed", "video", "discover", "live", "explore"]);
 
-export async function crawlWebsite(url: string): Promise<CrawlResult> {
+export async function crawlWebsite(url: string, leadId?: string): Promise<CrawlResult> {
   const start = Date.now();
   const normalized = url.startsWith("http") ? url : `https://${url}`;
 
@@ -96,12 +98,24 @@ export async function crawlWebsite(url: string): Promise<CrawlResult> {
     const iframeSrcs = collectAttrs($, "iframe[src]", "src", normalized);
     const allLinks = [...links, ...iframeSrcs];
     const bodyText = $("body").text().replace(/\s+/g, " ").toLowerCase();
+
+    // Cloudflare Browser Rendering: fetches the JS-rendered page as markdown.
+    // Catches social links / phones / booking URLs that Wix/Squarespace/Showit
+    // inject via JavaScript and are absent from the raw HTML above. Best-effort.
+    const markdown = await fetchMarkdownViaCloudflare(normalized, leadId);
+
     const platform_hits = detectPlatforms(html, allLinks, scriptSrcs);
-    const booking_urls = extractBookingUrls($, allLinks);
-    const { instagram_links, facebook_links, tiktok_links } = extractSocialLinks(html, allLinks);
-    const phones = extractPhones(html);
+    const booking_urls = mergeUnique(
+      extractBookingUrls($, allLinks),
+      markdown ? extractBookingFromText(markdown) : [],
+    ).slice(0, 5);
+    const { instagram_links, facebook_links, tiktok_links } = extractSocialLinks(html, allLinks, markdown);
+    const phones = mergeUnique(
+      extractPhones(html),
+      markdown ? extractPhones(markdown) : [],
+    ).slice(0, 5);
     const emails = extractEmails(html);
-    const cta_strength = detectCtaStrength(bodyText);
+    const cta_strength = detectCtaStrength(markdown ? `${bodyText} ${markdown.toLowerCase()}` : bodyText);
 
     return {
       url: normalized,
@@ -122,6 +136,59 @@ export async function crawlWebsite(url: string): Promise<CrawlResult> {
   } catch (error) {
     return emptyResult(normalized, "failed", Date.now() - start, null, error instanceof Error ? error.message : String(error));
   }
+}
+
+/**
+ * Render a page via Cloudflare Browser Rendering and return its Markdown.
+ * Best-effort: returns null if credentials are absent or the call fails.
+ */
+async function fetchMarkdownViaCloudflare(url: string, leadId?: string): Promise<string | null> {
+  if (!env.cloudflareAccountId || !env.cloudflareBrowserToken) return null;
+
+  try {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.cloudflareAccountId}/browser-rendering/markdown`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.cloudflareBrowserToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(25_000),
+      },
+    );
+
+    logApiCall({
+      provider: "cloudflare",
+      endpoint: "browser_rendering_markdown",
+      estimatedCostUsd: response.ok ? API_COSTS.cloudflare_markdown : 0,
+      status: response.ok ? "success" : "error",
+      leadId,
+      metadata: { url, httpStatus: response.status },
+    });
+
+    if (!response.ok) return null;
+    const json = (await response.json()) as { success?: boolean; result?: unknown };
+    return json.success && typeof json.result === "string" ? json.result : null;
+  } catch {
+    return null;
+  }
+}
+
+function mergeUnique(...lists: string[][]): string[] {
+  return [...new Set(lists.flat())];
+}
+
+/** Find booking-platform URLs in plain text / markdown. */
+function extractBookingFromText(text: string): string[] {
+  const urls = new Set<string>();
+  const urlRe = /https?:\/\/[^\s)"'<>\]]+/g;
+  for (const match of text.matchAll(urlRe)) {
+    const lower = match[0].toLowerCase();
+    if (BOOKING_DOMAINS.some((domain) => lower.includes(domain))) urls.add(match[0]);
+  }
+  return [...urls];
 }
 
 function emptyResult(url: string, status: CrawlResult["status"], durationMs: number, responseStatus: number | null, error: string): CrawlResult {
@@ -178,7 +245,7 @@ function extractBookingUrls($: cheerio.CheerioAPI, links: string[]) {
  * 2. <a href> anchor tags — standard HTML links
  * 3. Raw HTML regex — catches social URLs embedded in <script> blocks, Wix config, etc.
  */
-function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_links: string[]; facebook_links: string[]; tiktok_links: string[] } {
+function extractSocialLinks(html: string, anchorLinks: string[], markdown?: string | null): { instagram_links: string[]; facebook_links: string[]; tiktok_links: string[] } {
   const candidatesIg = new Set<string>();
   const candidatesFb = new Set<string>();
   const candidatesTt = new Set<string>();
@@ -197,15 +264,19 @@ function extractSocialLinks(html: string, anchorLinks: string[]): { instagram_li
     if (link.includes("tiktok.com")) candidatesTt.add(link);
   }
 
-  // Strategy 3: Raw HTML scan — finds URLs inside <script>, JSON config, data attributes
-  for (const match of html.matchAll(INSTAGRAM_RAW_RE)) {
-    candidatesIg.add(match[0]!);
-  }
-  for (const match of html.matchAll(FACEBOOK_RAW_RE)) {
-    candidatesFb.add(`https://www.facebook.com/${match[1]!.split(/[?#]/)[0]}`);
-  }
-  for (const match of html.matchAll(TIKTOK_RAW_RE)) {
-    candidatesTt.add(`https://www.tiktok.com/@${match[1]!}`);
+  // Strategy 3 + 4: Raw HTML scan, plus Cloudflare-rendered markdown if available.
+  // Markdown catches JS-injected social links missing from the static HTML.
+  for (const source of [html, markdown ?? ""]) {
+    if (!source) continue;
+    for (const match of source.matchAll(INSTAGRAM_RAW_RE)) {
+      candidatesIg.add(match[0]!);
+    }
+    for (const match of source.matchAll(FACEBOOK_RAW_RE)) {
+      candidatesFb.add(`https://www.facebook.com/${match[1]!.split(/[?#]/)[0]}`);
+    }
+    for (const match of source.matchAll(TIKTOK_RAW_RE)) {
+      candidatesTt.add(`https://www.tiktok.com/@${match[1]!}`);
+    }
   }
 
   return {

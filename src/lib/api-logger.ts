@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type ApiProvider = "serper" | "google_places" | "apify";
+export type ApiProvider = "serper" | "google_places" | "apify" | "cloudflare";
 
 export type ApiLogEntry = {
   provider: ApiProvider;
@@ -37,4 +37,5 @@ export const API_COSTS = {
   serper_maps_page: 0.001,        // per page request
   google_places_details: 0.017,   // per place details call
   apify_instagram_run: 0.005,     // per actor run (estimate)
+  cloudflare_markdown: 0.0001,    // per browser-rendering markdown call (estimate)
 } as const;
