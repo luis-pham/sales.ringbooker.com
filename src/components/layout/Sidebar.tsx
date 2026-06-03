@@ -13,6 +13,7 @@ import {
   ScrollText,
   Scissors,
   Search,
+  Target,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import type { UserRole } from "@/types";
 
 const navItems = [
   { href: "/", label: "Pipeline", icon: KanbanSquare, roles: ["admin", "outreacher", "viewer"] },
+  { href: "/sales", label: "Sales CRM", icon: Target, roles: ["admin", "outreacher"] },
   { href: "/leads", label: "Leads", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
   { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
   { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },

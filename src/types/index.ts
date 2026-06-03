@@ -269,6 +269,82 @@ export type ApiSuccess<T> = { data: T; error?: never };
 export type ApiError = { data?: never; error: string; code?: string };
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
+// ─── Sales Pipeline CRM ──────────────────────────────────────────────────────
+
+export type LeadStage =
+  | "ready"
+  | "sent"
+  | "viewed"
+  | "hot"
+  | "replied"
+  | "signedup"
+  | "onboarding"
+  | "trial"
+  | "converted"
+  | "ghosted"
+  | "churned";
+
+export type DemoSession = {
+  id: string;
+  date: string;   // ISO date "2025-01-15"
+  time: string;   // "14:32"
+  hour: number;   // 0-23 for Morning/Afternoon/Evening badge
+  duration: string;  // "4m 02s" — formatted
+  pct: number;    // 0-100
+};
+
+export type DemoTracking = {
+  demoId: string;
+  slug: string;   // ringbooker.com/{slug}
+  plays: number;
+  pct: number;    // highest % reached across all sessions
+  lastSeen: string | null;
+  sessions: DemoSession[];
+};
+
+export type NextActionUrgency = "urgent" | "soon" | "ok";
+
+export type NextAction = {
+  urgency: NextActionUrgency;
+  icon: string;
+  title: string;
+  desc: string;
+  due: string;
+};
+
+export type TimelineEventType = LeadStage | "note";
+
+export type TimelineEvent = {
+  id: string;
+  type: TimelineEventType;
+  text: string;
+  date: string;
+};
+
+/** Flat view model used by the Sales CRM — assembled from salon_leads + related tables */
+export type PipelineLead = {
+  id: string;
+  name: string;
+  location: string;          // "City, State"
+  platform: "Instagram" | "Facebook" | null;
+  handle: string | null;
+  followers: string | null;
+  businessType: string | null;
+  stage: LeadStage;
+  demo: DemoTracking | null;
+  timeline: TimelineEvent[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DemoWebhookPayload = {
+  slug: string;
+  event: "play" | "progress" | "complete";
+  pct: number;
+  timestamp: string;
+  duration_seconds?: number;
+};
+
 export type PaginatedResponse<T> = {
   data: T[];
   total: number;
