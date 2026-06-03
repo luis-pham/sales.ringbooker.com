@@ -15,7 +15,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "worker": "tsx scripts/worker.ts"
+    "worker": "tsx scripts/worker.ts",
+    "validate:targets": "tsx scripts/validate-search-targets.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.10.3",

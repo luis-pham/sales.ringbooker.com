@@ -15,6 +15,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   const { id } = await params;
   const adminClient = createAdminClient();
+
+  // Block assigning a lead with no social presence (data-quality gate). Unassigning is allowed.
+  if (parsed.data.assigned_to !== null) {
+    const { data: lead } = await adminClient
+      .from("salon_leads")
+      .select("has_social")
+      .eq("id", id)
+      .maybeSingle<{ has_social: boolean }>();
+    if (lead && lead.has_social === false) {
+      return NextResponse.json(
+        { error: "Lead has no social channel (Instagram/Facebook) and cannot be assigned." },
+        { status: 422 },
+      );
+    }
+  }
+
   const { data, error } = await adminClient
     .from("salon_leads")
     .update({ assigned_to: parsed.data.assigned_to })
