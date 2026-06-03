@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KanbanSquare, List, Inbox } from "lucide-react";
 import { LeadInbox } from "@/components/sales/LeadInbox";
 import { LeadTable } from "@/components/sales/LeadTable";
@@ -17,18 +17,27 @@ type Tab = "today" | "all" | "kanban";
 
 const KANBAN_STAGES: LeadStage[] = ["ready", "sent", "viewed", "hot", "replied", "converted"];
 
-/** Compact per-stage count strip — admin's at-a-glance pipeline summary. */
-function SummaryStrip({ leads }: { leads: PipelineLead[] }) {
-  const counts = new Map<LeadStage, number>();
-  for (const l of leads) counts.set(l.stage, (counts.get(l.stage) ?? 0) + 1);
+/** Compact per-stage count strip — admin's at-a-glance pipeline summary.
+ *  Counts come from /api/sales/stats (whole table), not the 200-row CRM fetch. */
+function SummaryStrip({ reloadSignal }: { reloadSignal: number }) {
+  const [stats, setStats] = useState<{ byStage: Record<string, number>; total: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/sales/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j && setStats(j.data))
+      .catch(() => null);
+  }, [reloadSignal]);
+
+  if (!stats) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3">
       <span className="text-xs font-semibold uppercase tracking-wide text-muted">Pipeline</span>
-      <span className="text-sm font-semibold text-text">{leads.length} total</span>
+      <span className="text-sm font-semibold text-text">{stats.total} total</span>
       <span className="text-border">·</span>
       {STAGE_ORDER.map((stage) => {
-        const n = counts.get(stage) ?? 0;
+        const n = stats.byStage[stage] ?? 0;
         if (n === 0) return null;
         return (
           <span key={stage} className="flex items-center gap-1 text-xs text-muted">
@@ -89,6 +98,7 @@ export function SalesClient({ role }: { role: UserRole }) {
   // Admin lands on the pipeline overview (Kanban); reps land on their action queue.
   const [tab, setTab] = useState<Tab>(isAdmin ? "kanban" : "today");
   const [activePanel, setActivePanel] = useState<PipelineLead | null>(null);
+  const [reloadSignal, setReloadSignal] = useState(0);
 
   const urgentCount = leads.filter(
     (l) => l.stage !== "converted" && l.stage !== "churned"
@@ -105,6 +115,7 @@ export function SalesClient({ role }: { role: UserRole }) {
     if (activePanel?.id === id) {
       setActivePanel((prev) => prev ? { ...prev, stage } : null);
     }
+    setReloadSignal((n) => n + 1); // refresh All Leads table + summary strip
   }
 
   async function handleAddNote(id: string, type: TimelineEvent["type"], text: string) {
@@ -120,7 +131,7 @@ export function SalesClient({ role }: { role: UserRole }) {
   return (
     <div className="space-y-5">
       {/* Admin pipeline summary */}
-      {isAdmin && !isLoading && <SummaryStrip leads={leads} />}
+      {isAdmin && <SummaryStrip reloadSignal={reloadSignal} />}
 
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-border">
@@ -161,11 +172,7 @@ export function SalesClient({ role }: { role: UserRole }) {
             <LeadInbox leads={leads} onSelectLead={openPanel} showQuota={!isAdmin} />
           )}
           {tab === "all" && (
-            <LeadTable
-              leads={leads}
-              onSelectLead={setActivePanel}
-              onUpdateStage={handleUpdateStage}
-            />
+            <LeadTable onSelectLead={setActivePanel} reloadSignal={reloadSignal} />
           )}
           {tab === "kanban" && (
             <MiniKanban leads={leads} onSelect={setActivePanel} />

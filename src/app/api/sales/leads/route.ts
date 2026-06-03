@@ -19,6 +19,22 @@ function toLeadStage(raw: string | null): LeadStage {
   return valid.includes(raw as LeadStage) ? (raw as LeadStage) : "ready";
 }
 
+const SELECT_FIELDS = `
+  id,
+  name,
+  city,
+  state,
+  categories,
+  facebook_url,
+  instagram_url,
+  sales_stage,
+  created_at,
+  updated_at,
+  instagram_snapshots ( handle, followers, profile_url ),
+  ringbooker_demos ( id, demo_slug, view_count, last_viewed_at ),
+  outreach_events ( id, type, notes, metadata, created_at )
+`;
+
 export async function GET(request: NextRequest) {
   const limited = enforceRateLimit(request, { key: "sales:leads", limit: 60, windowMs: 60_000 });
   if (limited) return limited;
@@ -26,34 +42,39 @@ export async function GET(request: NextRequest) {
   const { profile } = await getSessionUser();
   if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(request.url);
+  const pageParam = searchParams.get("page");
+  const paginated = pageParam != null;
+  const stage = searchParams.get("stage");
+  const q = searchParams.get("q");
+
   const adminClient = createAdminClient();
 
-  let query = adminClient
-    .from("salon_leads")
-    .select(`
-      id,
-      name,
-      city,
-      state,
-      categories,
-      facebook_url,
-      instagram_url,
-      sales_stage,
-      created_at,
-      updated_at,
-      instagram_snapshots ( handle, followers, profile_url ),
-      ringbooker_demos ( id, demo_slug, view_count, last_viewed_at ),
-      outreach_events ( id, type, notes, metadata, created_at )
-    `)
-    .order("updated_at", { ascending: false })
-    .limit(200);
+  // Paginated mode (All Leads table) returns an exact total; default mode (My Day /
+  // Kanban) returns up to 200 recent leads without a count.
+  let query = paginated
+    ? adminClient.from("salon_leads").select(SELECT_FIELDS, { count: "exact" })
+    : adminClient.from("salon_leads").select(SELECT_FIELDS);
 
-  if (profile.role !== "admin") {
-    query = query.eq("assigned_to", profile.id);
+  query = query.order("updated_at", { ascending: false });
+
+  if (profile.role !== "admin") query = query.eq("assigned_to", profile.id);
+  if (stage && stage !== "all") query = query.eq("sales_stage", stage);
+  if (q) query = query.ilike("name", `%${q}%`);
+
+  let total = 0;
+  if (paginated) {
+    const perPage = Math.min(100, Math.max(10, Number(searchParams.get("per_page")) || 50));
+    const page = Math.max(1, Number(pageParam) || 1);
+    const offset = (page - 1) * perPage;
+    query = query.range(offset, offset + perPage - 1);
+  } else {
+    query = query.limit(200);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  total = count ?? 0;
 
   const leads: PipelineLead[] = (data ?? []).map((row) => {
     const ig = (row.instagram_snapshots as any)?.[0] ?? null;
@@ -99,5 +120,5 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  return NextResponse.json({ data: leads });
+  return NextResponse.json(paginated ? { data: leads, total } : { data: leads });
 }

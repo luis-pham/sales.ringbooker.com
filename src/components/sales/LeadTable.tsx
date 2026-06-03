@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StageBadge } from "./StageBadge";
 import { BulkActionsBar } from "./BulkActionsBar";
 import { DMTemplateModal } from "./DMTemplateModal";
-import { STAGE_ORDER, STAGE_META, URGENCY_DOT } from "@/lib/stageConfig";
+import { STAGE_ORDER, STAGE_META } from "@/lib/stageConfig";
 import { getNextAction } from "@/lib/getNextAction";
 import type { PipelineLead, LeadStage } from "@/types";
+
+const PER_PAGE = 50;
 
 const STAGE_FILTERS: Array<{ value: LeadStage | "all"; label: string }> = [
   { value: "all", label: "All" },
@@ -22,33 +25,64 @@ function DemoDot({ plays, pct }: { plays: number; pct: number }) {
   return <div className={`h-2 w-2 rounded-full shrink-0 ${cls}`} />;
 }
 
+/**
+ * All Leads table — self-fetches with server-side pagination + stage/search filter,
+ * so it browses the WHOLE table (not the 200-row My Day/Kanban fetch).
+ * `reloadSignal` bumps when a lead is edited elsewhere (panel) to trigger a refetch.
+ */
 export function LeadTable({
-  leads,
   onSelectLead,
-  onUpdateStage,
+  reloadSignal = 0,
 }: {
-  leads: PipelineLead[];
   onSelectLead: (lead: PipelineLead) => void;
-  onUpdateStage: (id: string, stage: LeadStage) => Promise<void>;
+  reloadSignal?: number;
 }) {
+  const [leads, setLeads] = useState<PipelineLead[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [stageFilter, setStageFilter] = useState<LeadStage | "all">("all");
   const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dmLeads, setDmLeads] = useState<PipelineLead[] | null>(null);
+  const [localReload, setLocalReload] = useState(0);
 
-  const filtered = leads.filter((l) => {
-    if (stageFilter !== "all" && l.stage !== stageFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (!l.name.toLowerCase().includes(q) && !(l.handle ?? "").toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+  // Debounce the search box.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset to page 1 when filters change.
+  useEffect(() => { setPage(1); }, [stageFilter, debounced]);
+
+  // Fetch.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), per_page: String(PER_PAGE) });
+    if (stageFilter !== "all") params.set("stage", stageFilter);
+    if (debounced) params.set("q", debounced);
+
+    fetch(`/api/sales/leads?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : { data: [], total: 0 }))
+      .then((j: { data: PipelineLead[]; total?: number }) => {
+        if (cancelled) return;
+        setLeads(j.data ?? []);
+        setTotal(j.total ?? 0);
+        setSelected(new Set());
+      })
+      .finally(() => !cancelled && setLoading(false));
+
+    return () => { cancelled = true; };
+  }, [page, stageFilter, debounced, reloadSignal, localReload]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   function toggleAll(checked: boolean) {
-    setSelected(checked ? new Set(filtered.map((l) => l.id)) : new Set());
+    setSelected(checked ? new Set(leads.map((l) => l.id)) : new Set());
   }
-
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -60,8 +94,17 @@ export function LeadTable({
   const selectedLeads = leads.filter((l) => selected.has(l.id));
 
   async function handleMarkGhosted() {
-    await Promise.all(selectedLeads.map((l) => onUpdateStage(l.id, "ghosted")));
+    await Promise.all(
+      selectedLeads.map((l) =>
+        fetch(`/api/leads/${l.id}/stage`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage: "ghosted" }),
+        }),
+      ),
+    );
     setSelected(new Set());
+    setLocalReload((n) => n + 1); // refetch current page
   }
 
   return (
@@ -70,7 +113,7 @@ export function LeadTable({
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="search"
-          placeholder="Search name or handle…"
+          placeholder="Search business name…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="h-9 rounded-md border border-border bg-surface px-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-violet-300 dark:focus:ring-violet-700"
@@ -92,7 +135,6 @@ export function LeadTable({
         </div>
       </div>
 
-      {/* Bulk actions */}
       <BulkActionsBar
         count={selected.size}
         onCopyDM={() => setDmLeads(selectedLeads)}
@@ -108,7 +150,7 @@ export function LeadTable({
               <th className="px-3 py-3 w-10">
                 <input
                   type="checkbox"
-                  checked={selected.size === filtered.length && filtered.length > 0}
+                  checked={selected.size === leads.length && leads.length > 0}
                   onChange={(e) => toggleAll(e.target.checked)}
                   className="rounded"
                 />
@@ -121,14 +163,13 @@ export function LeadTable({
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted">
-                  No leads match filters.
-                </td>
-              </tr>
+            {loading && (
+              <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-muted">Loading…</td></tr>
             )}
-            {filtered.map((lead) => {
+            {!loading && leads.length === 0 && (
+              <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-muted">No leads match filters.</td></tr>
+            )}
+            {!loading && leads.map((lead) => {
               const action = getNextAction(lead);
               return (
                 <tr
@@ -136,10 +177,7 @@ export function LeadTable({
                   className="group border-b border-border last:border-0 hover:bg-surface-muted cursor-pointer"
                   onClick={() => onSelectLead(lead)}
                 >
-                  <td
-                    className="px-3 py-3 w-10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <td className="px-3 py-3 w-10" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={selected.has(lead.id)}
@@ -164,16 +202,12 @@ export function LeadTable({
                     {lead.handle && <div className="text-xs text-muted">{lead.handle}</div>}
                   </td>
                   <td className="px-3 py-3 text-muted">{lead.location}</td>
-                  <td className="px-3 py-3">
-                    <StageBadge stage={lead.stage} />
-                  </td>
+                  <td className="px-3 py-3"><StageBadge stage={lead.stage} /></td>
                   <td className="px-3 py-3">
                     {lead.demo ? (
                       <div className="flex items-center gap-2">
                         <DemoDot plays={lead.demo.plays} pct={lead.demo.pct} />
-                        <span className="text-muted">
-                          {lead.demo.plays}× · {lead.demo.pct}%
-                        </span>
+                        <span className="text-muted">{lead.demo.plays}× · {lead.demo.pct}%</span>
                       </div>
                     ) : (
                       <span className="text-muted">—</span>
@@ -196,9 +230,28 @@ export function LeadTable({
         </table>
       </div>
 
-      {dmLeads && (
-        <DMTemplateModal leads={dmLeads} onClose={() => setDmLeads(null)} />
-      )}
+      {/* Pagination */}
+      <div className="flex items-center justify-between text-xs text-muted">
+        <span>{total} leads · page {page}/{totalPages}</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-surface-muted disabled:opacity-40"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-surface-muted disabled:opacity-40"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {dmLeads && <DMTemplateModal leads={dmLeads} onClose={() => setDmLeads(null)} />}
     </div>
   );
 }
