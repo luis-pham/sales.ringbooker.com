@@ -26,6 +26,7 @@ export const env = {
   cronSecret: getServerEnv("CRON_SECRET"),
   workerId: getServerEnv("WORKER_ID", defaultWorkerId),
   workerPollIntervalMs: Number(getServerEnv("WORKER_POLL_INTERVAL_MS", "2000")),
+  workerConcurrency: Number(getServerEnv("WORKER_CONCURRENCY", "3")),
   serperApiKey: getServerEnv("SERPER_API_KEY"),
   googlePlacesApiKey: getServerEnv("GOOGLE_PLACES_API_KEY"),
   apifyApiToken: getServerEnv("APIFY_API_TOKEN"),
