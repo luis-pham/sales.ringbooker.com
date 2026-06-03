@@ -2,6 +2,7 @@ import "dotenv/config";
 import { env } from "../src/lib/env";
 import { dispatchJob } from "../src/lib/jobs/dispatch";
 import { claimNextJob, completeJob, enqueueJob, failJob, releaseStaleJobs } from "../src/lib/jobs/queue";
+import { runAssignmentCycle } from "../src/lib/assignment/assignment-service";
 import { createAdminClient } from "../src/lib/supabase/admin";
 
 let shuttingDown = false;
@@ -77,6 +78,7 @@ async function maintenanceLoop() {
         await releaseStaleJobs(15);
         await maybeEnqueueDailyAutoSearch();
         await maybeEnqueueInstagramBatch();
+        await maybeRunDailyAssignment();
       }
     } catch (error) {
       console.error("[Maintenance] tick failed", error);
@@ -123,4 +125,32 @@ async function maybeEnqueueInstagramBatch() {
   if (Date.now() - lastInstagramBatchRun < INSTAGRAM_BATCH_INTERVAL_MS) return;
   await enqueueJob("instagram_batch_queue", {}, { maxAttempts: 1 });
   lastInstagramBatchRun = Date.now();
+}
+
+// Auto lead-assignment: run once per UTC day. Gated on the persistent last_run_at in
+// assignment_config so it fires once even across worker restarts; runAssignmentCycle
+// itself respects the separate assignment pause flag.
+async function maybeRunDailyAssignment() {
+  try {
+    const db = createAdminClient();
+    const { data: cfg } = await db
+      .from("assignment_config")
+      .select("last_run_at")
+      .eq("id", true)
+      .maybeSingle<{ last_run_at: string | null }>();
+
+    const startOfTodayUtc = new Date();
+    startOfTodayUtc.setUTCHours(0, 0, 0, 0);
+    const ranToday = cfg?.last_run_at != null && new Date(cfg.last_run_at) >= startOfTodayUtc;
+    if (ranToday) return;
+
+    const result = await runAssignmentCycle(db);
+    if (result.status === "completed") {
+      console.log(`[Worker] Assignment: ${result.assigned} assigned, ${result.reclaimed} reclaimed`);
+    } else {
+      console.log(`[Worker] Assignment: ${result.status} (reclaimed ${result.reclaimed})`);
+    }
+  } catch (error) {
+    console.error("[Worker] Assignment cycle failed", error);
+  }
 }

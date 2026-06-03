@@ -345,6 +345,36 @@ export type DemoWebhookPayload = {
   duration_seconds?: number;
 };
 
+// ─── Auto lead assignment ────────────────────────────────────────────────────
+
+export type AssignmentPriorityMode = "p1_only" | "p2_only" | "p3_only" | "waterfall";
+
+export type AssignmentConfig = {
+  verticals: string[];
+  max_per_day: number;
+  priority_mode: AssignmentPriorityMode;
+  is_paused: boolean;
+  last_run_at: string | null;
+  last_run_assigned: number;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+export type AssignmentPoolStats = {
+  /** Assignable (unassigned, has_social, scored, vertical-matched, stage ready) leads per priority. */
+  pool: { p1: number; p2: number; p3: number; total: number };
+  activeReps: number;
+  maxPerDay: number;
+  priorityMode: AssignmentPriorityMode;
+  /** Leads consumed per day at full capacity = activeReps × maxPerDay. */
+  dailyDemand: number;
+  /** Days of runway given the current pool + config (null if no demand). */
+  runwayDays: number | null;
+  isPaused: boolean;
+  lastRunAt: string | null;
+  lastRunAssigned: number;
+};
+
 export type PaginatedResponse<T> = {
   data: T[];
   total: number;
