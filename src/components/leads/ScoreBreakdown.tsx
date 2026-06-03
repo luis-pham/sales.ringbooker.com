@@ -17,6 +17,7 @@ export function ScoreBreakdown({ factors }: { factors: ScoringFactors }) {
     <div className="space-y-3">
       {(Object.entries(factors) as Array<[keyof ScoringFactors, number]>).map(([key, value]) => {
         const config = labels[key];
+        if (!config) return null; // skip factors removed from schema (e.g. businessAge)
         return (
           <div key={key} className="space-y-1">
             <div className="flex justify-between gap-3 text-xs">
