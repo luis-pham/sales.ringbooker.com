@@ -80,6 +80,10 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
   const websiteUrl = (updates.website_url as string | undefined) ?? lead.website_url;
   if (websiteUrl) {
     const crawl = await crawlWebsite(websiteUrl, lead.id);
+    // Merge booking platforms found via web search (e.g. vagaro.com/salon) into the
+    // crawl result — a booking link from the web search counts as having a booking platform.
+    const bookingUrls = [...new Set([...crawl.booking_urls, ...(discovered?.bookingUrls ?? [])])].slice(0, 5);
+    const hasOnlineBooking = crawl.has_online_booking || bookingUrls.length > 0;
     await adminClient.from("website_snapshots").upsert(
       {
         lead_id: lead.id,
@@ -87,10 +91,10 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
         status: crawl.status,
         phones: crawl.phones,
         emails: crawl.emails,
-        booking_urls: crawl.booking_urls,
+        booking_urls: bookingUrls,
         platform_hits: crawl.platform_hits,
         cta_strength: crawl.cta_strength,
-        has_online_booking: crawl.has_online_booking,
+        has_online_booking: hasOnlineBooking,
         has_phone_visible: crawl.has_phone_visible,
         instagram_links: crawl.instagram_links,
         facebook_links: crawl.facebook_links,
