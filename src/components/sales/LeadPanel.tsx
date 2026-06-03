@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Copy, ExternalLink, Ghost, Send, X } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Ghost, Send, SquareArrowOutUpRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StageBadge } from "./StageBadge";
@@ -175,12 +175,23 @@ export function LeadPanel({
               </div>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="ml-4 shrink-0 rounded-md p-1.5 text-muted hover:bg-surface-muted hover:text-text"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="ml-4 flex shrink-0 items-center gap-1">
+            <a
+              href={`/leads/${lead.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open full page"
+              className="rounded-md p-1.5 text-muted hover:bg-surface-muted hover:text-text"
+            >
+              <SquareArrowOutUpRight className="h-4 w-4" />
+            </a>
+            <button
+              onClick={onClose}
+              className="rounded-md p-1.5 text-muted hover:bg-surface-muted hover:text-text"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable body */}

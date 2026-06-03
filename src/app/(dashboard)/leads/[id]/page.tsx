@@ -23,14 +23,28 @@ type LeadDetail = SalonLead & {
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const profile = await requireAuth();
   const { id } = await params;
-  const { data: lead } = await createAdminClient()
+  const { data: lead, error } = await createAdminClient()
     .from("salon_leads")
     .select("*, lead_scores(*), website_snapshots(*), instagram_snapshots(*), ringbooker_demos(*), outreach_events(*)")
     .eq("id", id)
-    .single<LeadDetail>();
+    .maybeSingle<LeadDetail>();
 
-  if (!lead || (profile.role !== "admin" && lead.assigned_to !== profile.id)) {
-    return <div className="text-sm text-muted">Lead not found.</div>;
+  if (error) {
+    console.error("[lead-detail] Supabase error:", error.message, "id:", id);
+    return (
+      <div className="space-y-2 p-4">
+        <div className="text-sm font-medium text-red-600">Failed to load lead</div>
+        <div className="font-mono text-xs text-muted">{error.message}</div>
+      </div>
+    );
+  }
+
+  if (!lead) {
+    return <div className="text-sm text-muted">Lead not found (id: {id}).</div>;
+  }
+
+  if (profile.role !== "admin" && lead.assigned_to !== profile.id) {
+    return <div className="text-sm text-muted">You do not have access to this lead.</div>;
   }
 
   const score = lead.lead_scores?.[0] ?? null;

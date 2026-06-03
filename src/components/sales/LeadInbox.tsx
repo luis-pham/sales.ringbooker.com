@@ -1,7 +1,8 @@
 "use client";
 
+import { SquareArrowOutUpRight } from "lucide-react";
 import { StageBadge } from "./StageBadge";
-import { URGENCY_DOT, URGENCY_COLOR } from "@/lib/stageConfig";
+import { URGENCY_COLOR } from "@/lib/stageConfig";
 import { getNextAction } from "@/lib/getNextAction";
 import type { PipelineLead, LeadStage } from "@/types";
 
@@ -73,6 +74,16 @@ export function LeadInbox({
                   <span className="truncate text-sm font-medium text-text">{lead.name}</span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <StageBadge stage={lead.stage} />
+                    <a
+                      href={`/leads/${lead.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Open full page"
+                      className="text-muted hover:text-violet-700"
+                    >
+                      <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                    </a>
                   </div>
                 </div>
                 <div className="mt-0.5 text-xs text-muted">{action.title}</div>
