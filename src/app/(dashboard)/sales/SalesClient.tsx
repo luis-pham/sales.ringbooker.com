@@ -7,15 +7,39 @@ import { LeadTable } from "@/components/sales/LeadTable";
 import { LeadPanel } from "@/components/sales/LeadPanel";
 import { useLeads } from "@/hooks/useLeads";
 import { getNextAction } from "@/lib/getNextAction";
-import type { PipelineLead, LeadStage, TimelineEvent } from "@/types";
+import type { PipelineLead, LeadStage, TimelineEvent, UserRole } from "@/types";
 
 // Inline mini-kanban to avoid breaking existing PipelineClient
-import { STAGE_META } from "@/lib/stageConfig";
+import { STAGE_META, STAGE_ORDER } from "@/lib/stageConfig";
 import { StageBadge } from "@/components/sales/StageBadge";
 
 type Tab = "today" | "all" | "kanban";
 
 const KANBAN_STAGES: LeadStage[] = ["ready", "sent", "viewed", "hot", "replied", "converted"];
+
+/** Compact per-stage count strip — admin's at-a-glance pipeline summary. */
+function SummaryStrip({ leads }: { leads: PipelineLead[] }) {
+  const counts = new Map<LeadStage, number>();
+  for (const l of leads) counts.set(l.stage, (counts.get(l.stage) ?? 0) + 1);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted">Pipeline</span>
+      <span className="text-sm font-semibold text-text">{leads.length} total</span>
+      <span className="text-border">·</span>
+      {STAGE_ORDER.map((stage) => {
+        const n = counts.get(stage) ?? 0;
+        if (n === 0) return null;
+        return (
+          <span key={stage} className="flex items-center gap-1 text-xs text-muted">
+            <span className={`h-2 w-2 rounded-full ${STAGE_META[stage].dotColor}`} />
+            {STAGE_META[stage].label} <span className="font-medium text-text">{n}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 function MiniKanban({
   leads,
@@ -59,9 +83,11 @@ function MiniKanban({
   );
 }
 
-export function SalesClient() {
+export function SalesClient({ role }: { role: UserRole }) {
+  const isAdmin = role === "admin";
   const { leads, isLoading, updateLeadStage, addTimelineEvent, refetch } = useLeads();
-  const [tab, setTab] = useState<Tab>("today");
+  // Admin lands on the pipeline overview (Kanban); reps land on their action queue.
+  const [tab, setTab] = useState<Tab>(isAdmin ? "kanban" : "today");
   const [activePanel, setActivePanel] = useState<PipelineLead | null>(null);
 
   const urgentCount = leads.filter(
@@ -93,6 +119,9 @@ export function SalesClient() {
 
   return (
     <div className="space-y-5">
+      {/* Admin pipeline summary */}
+      {isAdmin && !isLoading && <SummaryStrip leads={leads} />}
+
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-border">
         {tabs.map(({ id, label, icon: Icon, badge }) => (
@@ -129,7 +158,7 @@ export function SalesClient() {
       {!isLoading && (
         <>
           {tab === "today" && (
-            <LeadInbox leads={leads} onSelectLead={openPanel} />
+            <LeadInbox leads={leads} onSelectLead={openPanel} showQuota={!isAdmin} />
           )}
           {tab === "all" && (
             <LeadTable

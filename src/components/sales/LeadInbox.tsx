@@ -55,7 +55,7 @@ function LeadRow({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              title="Mở trang đầy đủ"
+              title="Open full page"
               className="text-muted hover:text-violet-700"
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -63,7 +63,7 @@ function LeadRow({
           </div>
         </div>
         <div className="mt-0.5 text-xs text-muted">
-          {fresh ? "🔥 Vừa xem demo — chốt ngay" : action.title}
+          {fresh ? "🔥 Just viewed demo — reach out now" : action.title}
         </div>
         <div className="mt-1 flex items-center gap-3 text-xs text-muted">
           <span>{lead.location}</span>
@@ -104,18 +104,21 @@ function Section({
 export function LeadInbox({
   leads,
   onSelectLead,
+  showQuota = true,
 }: {
   leads: PipelineLead[];
   onSelectLead: (lead: PipelineLead) => void;
+  showQuota?: boolean;
 }) {
   const [quota, setQuota] = useState<{ sentToday: number; target: number } | null>(null);
 
   useEffect(() => {
+    if (!showQuota) return;
     fetch("/api/sales/quota")
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => j && setQuota(j.data))
       .catch(() => null);
-  }, [leads]);
+  }, [leads, showQuota]);
 
   const inbox = leads.filter((l) => l.stage !== "converted" && l.stage !== "churned");
 
@@ -134,12 +137,12 @@ export function LeadInbox({
   return (
     <div className="space-y-5">
       {/* Daily quota bar */}
-      {quota && (
+      {showQuota && quota && (
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-text">DM hôm nay</span>
+            <span className="font-medium text-text">DMs today</span>
             <span className={quotaDone ? "font-semibold text-emerald-600" : "text-muted"}>
-              {quotaDone ? "Đã đạt mục tiêu 🎉" : `${quota.sentToday}/${quota.target}`}
+              {quotaDone ? "Target reached 🎉" : `${quota.sentToday}/${quota.target}`}
             </span>
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-muted">
@@ -155,12 +158,12 @@ export function LeadInbox({
       {inbox.length === 0 && (
         <div className="rounded-lg border border-border bg-surface py-12 text-center">
           <div className="text-2xl">🎉</div>
-          <div className="mt-2 text-sm font-medium text-text">Hết việc hôm nay!</div>
-          <div className="mt-0.5 text-xs text-muted">Không còn lead nào cần xử lý.</div>
+          <div className="mt-2 text-sm font-medium text-text">All done for today!</div>
+          <div className="mt-0.5 text-xs text-muted">No leads left to work.</div>
         </div>
       )}
 
-      <Section icon={<Flame className="h-4 w-4" />} title="Làm ngay" count={urgent.length} color="text-red-500">
+      <Section icon={<Flame className="h-4 w-4" />} title="Do now" count={urgent.length} color="text-red-500">
         {urgent.map((lead) => (
           <LeadRow key={lead.id} lead={lead} onSelect={onSelectLead} accent="red" />
         ))}
@@ -172,7 +175,7 @@ export function LeadInbox({
         ))}
       </Section>
 
-      <Section icon={<Send className="h-4 w-4" />} title="DM mới hôm nay" count={newDM.length} color="text-emerald-500">
+      <Section icon={<Send className="h-4 w-4" />} title="New DMs today" count={newDM.length} color="text-emerald-500">
         {newDM.map((lead) => (
           <LeadRow key={lead.id} lead={lead} onSelect={onSelectLead} accent="emerald" />
         ))}
