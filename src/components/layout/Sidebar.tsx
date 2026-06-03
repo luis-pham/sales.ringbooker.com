@@ -19,11 +19,11 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 
 const navItems = [
+  { href: "/analytics", label: "Overview", icon: BarChart3, roles: ["admin"] },
   { href: "/sales", label: "Sales CRM", icon: Target, roles: ["admin", "outreacher", "viewer"] },
   { href: "/leads", label: "Leads", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
   { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
   { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
-  { href: "/analytics", label: "Overview", icon: BarChart3, roles: ["admin"] },
   { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
   { href: "/jobs", label: "Jobs", icon: BrainCircuit, roles: ["admin"] },
   { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
