@@ -21,12 +21,24 @@ export type ScoringResult = Pick<
 
 export function calculateScore(input: ScoringInput): ScoringResult {
   const { lead, websiteSnapshot, instagramSnapshot, sourceSnapshot } = input;
-  const noOnlineBooking =
-    !websiteSnapshot?.has_online_booking &&
-    !instagramSnapshot?.booking_link_in_bio &&
-    (websiteSnapshot?.booking_urls?.length ?? 0) === 0
-      ? 25
-      : 0;
+
+  const hasBookingPlatform =
+    Boolean(websiteSnapshot?.has_online_booking) ||
+    Boolean(instagramSnapshot?.booking_link_in_bio) ||
+    (websiteSnapshot?.booking_urls?.length ?? 0) > 0;
+
+  // The opportunity is an ACTIVE, reachable salon that lacks online booking — not a
+  // ghost listing. Require some online footprint (website / social / a real review
+  // base) before crediting "no online booking"; otherwise a salon with no website,
+  // no socials and few reviews banks 25 points just for having no data. Also, outreach
+  // happens via IG/FB DM, so a salon with no socials and no website isn't actionable.
+  const hasOnlineFootprint =
+    Boolean(lead.website_url) ||
+    Boolean(lead.instagram_url) ||
+    Boolean(lead.facebook_url) ||
+    (lead.review_count ?? 0) >= 50;
+
+  const noOnlineBooking = !hasBookingPlatform && hasOnlineFootprint ? 25 : 0;
 
   const factors: ScoringFactors = {
     noOnlineBooking,
