@@ -324,7 +324,7 @@ function extractJsonLdSameAs(html: string): string[] {
   return urls;
 }
 
-function normalizeInstagramProfile(url: string): string | null {
+export function normalizeInstagramProfile(url: string): string | null {
   try {
     const u = new URL(url);
     const segs = u.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -338,7 +338,7 @@ function normalizeInstagramProfile(url: string): string | null {
   }
 }
 
-function normalizeTikTokProfile(url: string): string | null {
+export function normalizeTikTokProfile(url: string): string | null {
   try {
     const u = new URL(url);
     const segs = u.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
@@ -355,7 +355,7 @@ function normalizeTikTokProfile(url: string): string | null {
   }
 }
 
-function normalizeFacebookProfile(url: string): string | null {
+export function normalizeFacebookProfile(url: string): string | null {
   try {
     const u = new URL(url);
     const pathLower = u.pathname.toLowerCase();

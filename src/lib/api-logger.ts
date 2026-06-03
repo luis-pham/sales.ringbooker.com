@@ -35,6 +35,7 @@ export function logApiCall(entry: ApiLogEntry): void {
 // Cost constants (USD per unit)
 export const API_COSTS = {
   serper_maps_page: 0.001,        // per page request
+  serper_web_search: 0.001,       // per web search query
   google_places_details: 0.017,   // per place details call
   apify_instagram_run: 0.005,     // per actor run (estimate)
   cloudflare_markdown: 0.0001,    // per browser-rendering markdown call (estimate)
