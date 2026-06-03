@@ -9,8 +9,11 @@ type PlatformConfig = {
 const PLATFORMS: Record<string, PlatformConfig> = {
   square: {
     tier: "A",
+    // NOTE: js.squareup.com is the Square Web Payments SDK (gift cards / checkout),
+    // NOT appointments — including it flagged payment-only sites as "has booking".
+    // Square Appointments is detected via the booking URLs below instead.
     urlPatterns: ["square.site", "squareup.com/appointments", "book.squareup.com"],
-    scriptPatterns: ["js.squareup.com", "js.squareupsandbox.com"],
+    scriptPatterns: [],
   },
   vagaro: {
     tier: "A",
@@ -59,9 +62,8 @@ const PLATFORMS: Record<string, PlatformConfig> = {
   },
 };
 
-export function detectPlatforms(html: string, links: string[], scriptSrcs: string[]): PlatformHit[] {
+export function detectPlatforms(_html: string, links: string[], scriptSrcs: string[]): PlatformHit[] {
   const hits: PlatformHit[] = [];
-  const allText = [html, ...links, ...scriptSrcs].join(" ").toLowerCase();
 
   for (const [platform, config] of Object.entries(PLATFORMS)) {
     let confidence = 0;
@@ -85,15 +87,11 @@ export function detectPlatforms(html: string, links: string[], scriptSrcs: strin
       }
     }
 
-    if (confidence === 0) {
-      for (const pattern of config.urlPatterns) {
-        if (allText.includes(pattern)) {
-          confidence = 0.75;
-          evidence = `html_mention: ${pattern}`;
-          break;
-        }
-      }
-    }
+    // NOTE: the old html_mention fallback (0.75 for the platform name appearing
+    // anywhere in the page text) is removed — a casual mention ("we used to use
+    // Vagaro", a review quote, a theme footer) falsely flagged "has booking" and
+    // pushed genuine no-booking leads OUT of P1. Only real link/script integrations
+    // count now.
 
     if (confidence > 0) hits.push({ platform, confidence, evidence, tier: config.tier });
   }

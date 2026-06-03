@@ -142,8 +142,23 @@ export async function crawlWebsite(url: string, leadId?: string): Promise<CrawlR
  * Render a page via Cloudflare Browser Rendering and return its Markdown.
  * Best-effort: returns null if credentials are absent or the call fails.
  */
+let cloudflareWarned = false;
+function warnCloudflareMissingOnce() {
+  if (cloudflareWarned) return;
+  cloudflareWarned = true;
+  console.warn(
+    "[Crawler] Cloudflare Browser Rendering NOT configured " +
+    "(CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_BROWSER_TOKEN missing). " +
+    "JS-rendered sites (Wix/Squarespace/Showit/GoDaddy) will read as 'no booking' " +
+    "and may be scored as false P1 leads. Set these env vars to fix.",
+  );
+}
+
 async function fetchMarkdownViaCloudflare(url: string, leadId?: string): Promise<string | null> {
-  if (!env.cloudflareAccountId || !env.cloudflareBrowserToken) return null;
+  if (!env.cloudflareAccountId || !env.cloudflareBrowserToken) {
+    warnCloudflareMissingOnce();
+    return null;
+  }
 
   try {
     const response = await fetch(

@@ -5,7 +5,7 @@ export type ScoringInput = {
   lead: SalonLead;
   websiteSnapshot: Pick<
     WebsiteSnapshot,
-    "has_online_booking" | "platform_hits" | "booking_urls" | "cta_strength"
+    "has_online_booking" | "platform_hits" | "booking_urls" | "cta_strength" | "status"
   > | null;
   instagramSnapshot: Pick<
     InstagramSnapshot,
@@ -38,7 +38,16 @@ export function calculateScore(input: ScoringInput): ScoringResult {
     Boolean(lead.facebook_url) ||
     (lead.review_count ?? 0) >= 50;
 
-  const noOnlineBooking = !hasBookingPlatform && hasOnlineFootprint ? 25 : 0;
+  // "No online booking" is the core opportunity signal — but only credit it when we
+  // ACTUALLY inspected the site. A failed/blocked crawl is "unknown", not "confirmed
+  // no booking"; granting 25 pts there fabricates P1 leads from crawl failures.
+  // status "crawled" = HTML fetched & parsed; "skipped" = no site but web-discovery ran.
+  const crawlInspected =
+    !websiteSnapshot ||
+    websiteSnapshot.status === "crawled" ||
+    websiteSnapshot.status === "skipped";
+
+  const noOnlineBooking = !hasBookingPlatform && hasOnlineFootprint && crawlInspected ? 25 : 0;
 
   const lastReviewAt = lead.last_review_at ? new Date(lead.last_review_at) : null;
 
