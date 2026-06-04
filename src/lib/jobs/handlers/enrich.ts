@@ -131,17 +131,13 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
     if (!lead.facebook_url && crawl.facebook_links[0]) updates.facebook_url = crawl.facebook_links[0];
     if (!lead.tiktok_url && crawl.tiktok_links[0]) updates.tiktok_url = crawl.tiktok_links[0];
 
-    // Case 2: Has website but crawl found no social → run web search to find socials
-    const crawlFoundSocial =
-      crawl.instagram_links.length > 0 ||
-      crawl.facebook_links.length > 0 ||
-      crawl.tiktok_links.length > 0;
-    const leadHasSocial =
-      !!(updates.instagram_url ?? lead.instagram_url) ||
-      !!(updates.facebook_url  ?? lead.facebook_url)  ||
-      !!(updates.tiktok_url    ?? lead.tiktok_url);
+    // Case 2: a key channel (IG/FB) is still missing after crawling → web search to
+    // FILL THE GAPS. Per-channel: finding one channel must not stop us collecting the
+    // others, and we only fill what's still empty (never overwrite a real link).
+    const hasInstagram = !!(updates.instagram_url ?? lead.instagram_url);
+    const hasFacebook  = !!(updates.facebook_url  ?? lead.facebook_url);
 
-    if (!crawlFoundSocial && !leadHasSocial && passesDiscoveryGate && !discovered) {
+    if ((!hasInstagram || !hasFacebook) && passesDiscoveryGate && !discovered) {
       discovered = await searchWebForChannels(lead.name, lead.city ?? "", lead.id);
       if (discovered.instagram && !updates.instagram_url) updates.instagram_url = discovered.instagram;
       if (discovered.facebook  && !updates.facebook_url)  updates.facebook_url  = discovered.facebook;
@@ -152,7 +148,7 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
           .update({ booking_urls: merged, has_online_booking: true })
           .eq("lead_id", lead.id);
       }
-      console.log(`[Enrich] Web discovery (no social on website) for ${lead.id}: ${[
+      console.log(`[Enrich] Web discovery (fill missing socials) for ${lead.id}: ${[
         discovered.instagram && "instagram",
         discovered.facebook  && "facebook",
         discovered.tiktok    && "tiktok",

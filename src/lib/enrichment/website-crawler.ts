@@ -62,7 +62,14 @@ const TIKTOK_RAW_RE = /https?:\/\/(?:www\.)?tiktok\.com\/@([a-zA-Z0-9._]{1,30})\
 // Instagram path segments that are NOT profile URLs
 const IG_EXCLUDED = new Set(["p", "reel", "reels", "stories", "explore", "accounts", "tv", "legal", "about", "share", "direct"]);
 // Facebook path segments that are NOT business profile URLs
-const FB_EXCLUDED = new Set(["login", "recover", "help", "watch", "gaming", "marketplace", "reel", "reels", "sharer", "share", "dialog", "plugins"]);
+const FB_EXCLUDED = new Set([
+  "login", "recover", "help", "watch", "gaming", "marketplace", "reel", "reels",
+  "sharer", "share", "dialog", "plugins",
+  // Non-profile system paths frequently scraped by mistake:
+  "tr",          // Facebook Pixel tracking endpoint (facebook.com/tr?id=…&ev=PageView)
+  "privacy", "policies", "policy", "terms", "legal", "business", "ads", "ad",
+  "pixel", "about", "careers", "directory", "pages",
+]);
 // TikTok path segments that are NOT profile URLs
 const TT_EXCLUDED = new Set(["share", "embed", "video", "discover", "live", "explore"]);
 
@@ -112,22 +119,20 @@ export async function crawlWebsite(url: string, leadId?: string): Promise<CrawlR
     let { instagram_links, facebook_links, tiktok_links } = extractSocialLinks(html, allLinks, markdown);
 
     // JS-shell sites (e.g. Square Online) render socials only after hydration, which
-    // the markdown endpoint misses (returns empty). When the cheap passes found no
-    // social AND markdown came back empty, fall back to a fully-rendered HTML snapshot.
-    if (
-      instagram_links.length === 0 &&
-      facebook_links.length === 0 &&
-      tiktok_links.length === 0 &&
-      (!markdown || markdown.trim().length < 200)
-    ) {
+    // the markdown endpoint misses (returns empty). When a key channel (IG/FB) is
+    // still missing AND markdown came back empty, fall back to a fully-rendered HTML
+    // snapshot — then fill ONLY the empty channels (never overwrite a real one, and
+    // finding one channel must not stop us collecting the rest).
+    const missingKeySocial = instagram_links.length === 0 || facebook_links.length === 0;
+    if (missingKeySocial && (!markdown || markdown.trim().length < 200)) {
       const renderedHtml = await fetchRenderedHtmlViaCloudflare(normalized, leadId);
       if (renderedHtml) {
         const $$ = cheerio.load(renderedHtml);
         const renderedLinks = collectAttrs($$, "a[href]", "href", normalized);
         const social = extractSocialLinks(renderedHtml, renderedLinks, null);
-        instagram_links = social.instagram_links;
-        facebook_links = social.facebook_links;
-        tiktok_links = social.tiktok_links;
+        if (instagram_links.length === 0) instagram_links = social.instagram_links;
+        if (facebook_links.length === 0) facebook_links = social.facebook_links;
+        if (tiktok_links.length === 0) tiktok_links = social.tiktok_links;
       }
     }
 
