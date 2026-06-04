@@ -14,6 +14,7 @@ import { EvidenceList } from "./EvidenceList";
 import { useDemoTracking } from "@/hooks/useDemoTracking";
 import { getNextAction } from "@/lib/getNextAction";
 import { submitStepWithEvidence } from "@/lib/evidence-client";
+import { buildOpener } from "@/lib/outreach/dm-templates";
 import { STAGE_META, nextFunnelStage } from "@/lib/stageConfig";
 import type { PipelineLead, LeadStage, TimelineEvent } from "@/types";
 
@@ -27,9 +28,10 @@ function platformLink(lead: PipelineLead): string | null {
   return null;
 }
 
+// First DM is the curiosity opener (no link) — see dm-templates. The demo link
+// goes out in the reveal after they reply.
 function buildDMTemplate(lead: PipelineLead): string {
-  const demoLink = lead.demo?.slug ? `https://ringbooker.com/${lead.demo.slug}` : "your personalized demo link";
-  return `Hey ${lead.name}! 👋\n\nI noticed you don't have an online booking system yet — I built something that lets salons like yours take bookings 24/7 without lifting a finger.\n\nI put together a quick demo just for you: ${demoLink}\n\nTakes 2 minutes to watch. Would love your thoughts!`;
+  return buildOpener(lead);
 }
 
 /** ready stage: copy message + open DM + REQUIRED screenshot + confirm sent. */
@@ -84,7 +86,7 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
       {/* QA gate — verify demo quality before sending */}
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
         <div className="mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-400">
-          Kiểm tra chất lượng demo (bắt buộc)
+          Kiểm tra chất lượng demo (bắt buộc) — bạn sẽ gửi link này ở tin reveal sau khi họ trả lời
         </div>
         {demoUrl ? (
           <a href={demoUrl} target="_blank" rel="noopener noreferrer"
@@ -106,7 +108,8 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
         </label>
       </div>
 
-      <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={7} className="text-sm" />
+      <div className="text-xs font-medium text-muted">Opener — curiosity, no link (share the demo after they reply)</div>
+      <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={5} className="text-sm" />
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={handleCopy} className="flex-1">
@@ -136,7 +139,7 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
         {sending ? "Saving…" : "4. ✓ Confirm — I sent the DM"}
       </Button>
       <p className="text-center text-xs text-muted">
-        Requires demo quality check + screenshot. Moves the lead to <strong>Sent</strong> and logs it.
+        Sends the opener (no link). Requires demo check + screenshot. Moves the lead to <strong>Sent</strong>; share the demo in the reveal after they reply.
       </p>
     </div>
   );

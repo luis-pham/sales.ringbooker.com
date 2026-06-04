@@ -4,16 +4,75 @@ import { useState } from "react";
 import { Copy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { buildDmSequence, buildOpener } from "@/lib/outreach/dm-templates";
 import type { PipelineLead } from "@/types";
 
-function buildTemplate(lead: PipelineLead): string {
-  const name = lead.name;
-  const demo = lead.demo?.slug ? `https://ringbooker.com/${lead.demo.slug}` : "your personalized demo link";
-  return `Hey ${name}! 👋\n\nI noticed you don't have an online booking system yet — I built something that lets salons like yours take bookings 24/7 without lifting a finger.\n\nI put together a quick demo just for you: ${demo}\n\nTakes 2 minutes to watch. Would love your thoughts!`;
+/** One labelled, copyable message block. */
+function CopyBlock({ label, hint, text, rows = 4 }: { label: string; hint?: string; text: string; rows?: number }) {
+  const [copied, setCopied] = useState(false);
+  async function handleCopy() {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-semibold text-text">{label}</span>
+        <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 px-2">
+          <Copy className="mr-1 h-3 w-3" />
+          {copied ? "Copied!" : "Copy"}
+        </Button>
+      </div>
+      {hint && <p className="mb-1.5 text-xs text-muted">{hint}</p>}
+      <Textarea value={text} readOnly rows={rows} className="text-sm" />
+    </div>
+  );
 }
 
-function buildGenericTemplate(leads: PipelineLead[]): string {
-  return `Hey! 👋\n\nI help salons take bookings 24/7 with an AI-powered system — no tech skills needed.\n\nI'm reaching out to ${leads.length} businesses like yours to share a quick demo. Would you be open to taking a look?\n\nTakes 2 minutes. Let me know!`;
+/** Single lead: full randomized 2-step sequence + contextual follow-ups. */
+function SingleSequence({ lead }: { lead: PipelineLead }) {
+  const seq = buildDmSequence(lead);
+  return (
+    <div className="space-y-4">
+      <CopyBlock
+        label="1 · Opener (send first — no link)"
+        hint="Cold DM. Pure curiosity + permission. Wait for a reply before sending the demo."
+        text={seq.opener}
+        rows={3}
+      />
+      <CopyBlock
+        label="2 · Reveal + demo link (after they reply)"
+        hint="Send once they reply. Delivers on the curiosity with their personalized demo."
+        text={seq.reveal}
+        rows={5}
+      />
+      <div className="rounded-lg border border-border bg-surface-muted p-3">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Follow-ups (pick by situation)</div>
+        <div className="space-y-3">
+          <CopyBlock label="Opened, no reply" text={seq.followUps.openedNoReply} rows={2} />
+          <CopyBlock label="Replied, hasn't opened link" text={seq.followUps.notOpened} rows={3} />
+          <CopyBlock label="Reacted positively" text={seq.followUps.positive} rows={2} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Multiple leads: first-touch openers (each personalized) for bulk outreach. */
+function BulkOpeners({ leads }: { leads: PipelineLead[] }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">
+        Each lead gets its own randomized opener (no link). Reply first, then open a lead for its reveal + demo link.
+      </p>
+      <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
+        {leads.map((lead) => (
+          <CopyBlock key={lead.id} label={lead.name} text={buildOpener(lead)} rows={2} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function DMTemplateModal({
@@ -24,38 +83,26 @@ export function DMTemplateModal({
   onClose: () => void;
 }) {
   const isSingle = leads.length === 1;
-  const [copied, setCopied] = useState(false);
-  const text = isSingle ? buildTemplate(leads[0]) : buildGenericTemplate(leads);
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-[var(--shadow-modal)]"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-[var(--shadow-modal)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-text">
-            {isSingle ? `DM template — ${leads[0].name}` : `Generic template (${leads.length} leads)`}
+            {isSingle ? `DM sequence — ${leads[0].name}` : `Openers (${leads.length} leads)`}
           </h2>
           <button onClick={onClose} className="text-muted hover:text-text">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <Textarea value={text} readOnly rows={9} className="font-mono text-sm" />
+        {isSingle ? <SingleSequence lead={leads[0]} /> : <BulkOpeners leads={leads} />}
 
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
-          <Button size="sm" onClick={handleCopy}>
-            <Copy className="mr-1.5 h-3.5 w-3.5" />
-            {copied ? "Copied!" : "Copy"}
-          </Button>
         </div>
       </div>
     </div>
