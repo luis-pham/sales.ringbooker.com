@@ -109,7 +109,28 @@ export async function crawlWebsite(url: string, leadId?: string): Promise<CrawlR
       extractBookingUrls($, allLinks),
       markdown ? extractBookingFromText(markdown) : [],
     ).slice(0, 5);
-    const { instagram_links, facebook_links, tiktok_links } = extractSocialLinks(html, allLinks, markdown);
+    let { instagram_links, facebook_links, tiktok_links } = extractSocialLinks(html, allLinks, markdown);
+
+    // JS-shell sites (e.g. Square Online) render socials only after hydration, which
+    // the markdown endpoint misses (returns empty). When the cheap passes found no
+    // social AND markdown came back empty, fall back to a fully-rendered HTML snapshot.
+    if (
+      instagram_links.length === 0 &&
+      facebook_links.length === 0 &&
+      tiktok_links.length === 0 &&
+      (!markdown || markdown.trim().length < 200)
+    ) {
+      const renderedHtml = await fetchRenderedHtmlViaCloudflare(normalized, leadId);
+      if (renderedHtml) {
+        const $$ = cheerio.load(renderedHtml);
+        const renderedLinks = collectAttrs($$, "a[href]", "href", normalized);
+        const social = extractSocialLinks(renderedHtml, renderedLinks, null);
+        instagram_links = social.instagram_links;
+        facebook_links = social.facebook_links;
+        tiktok_links = social.tiktok_links;
+      }
+    }
+
     const phones = mergeUnique(
       extractPhones(html),
       markdown ? extractPhones(markdown) : [],
@@ -152,6 +173,47 @@ function warnCloudflareMissingOnce() {
     "JS-rendered sites (Wix/Squarespace/Showit/GoDaddy) will read as 'no booking' " +
     "and may be scored as false P1 leads. Set these env vars to fix.",
   );
+}
+
+/**
+ * Fully-rendered HTML via Cloudflare Browser Rendering /content, waiting for JS
+ * hydration. Used as a fallback for JS-shell sites (Square Online, Wix, …) whose
+ * socials the cheaper /markdown endpoint returns empty for. Heavier (~MBs) so it's
+ * only called when the static + markdown passes found no social.
+ */
+async function fetchRenderedHtmlViaCloudflare(url: string, leadId?: string): Promise<string | null> {
+  if (!env.cloudflareAccountId || !env.cloudflareBrowserToken) return null;
+
+  try {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.cloudflareAccountId}/browser-rendering/content`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.cloudflareBrowserToken}`,
+          "Content-Type": "application/json",
+        },
+        // waitUntil networkidle0 + a hydration grace period — socials load late.
+        body: JSON.stringify({ url, gotoOptions: { waitUntil: "networkidle0" }, waitForTimeout: 8000 }),
+        signal: AbortSignal.timeout(35_000),
+      },
+    );
+
+    logApiCall({
+      provider: "cloudflare",
+      endpoint: "browser_rendering_content",
+      estimatedCostUsd: response.ok ? API_COSTS.cloudflare_markdown : 0,
+      status: response.ok ? "success" : "error",
+      leadId,
+      metadata: { url, httpStatus: response.status },
+    });
+
+    if (!response.ok) return null;
+    const json = (await response.json()) as { success?: boolean; result?: unknown };
+    return json.success && typeof json.result === "string" && json.result.length > 0 ? json.result : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchMarkdownViaCloudflare(url: string, leadId?: string): Promise<string | null> {

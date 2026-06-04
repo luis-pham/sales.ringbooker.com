@@ -71,6 +71,14 @@ export function calculateScore(input: ScoringInput): ScoringResult {
     priority = 3;
   }
 
+  // No reachable social (Instagram/Facebook) → the demo is shared via DM, so a lead
+  // we can't DM can't run the playbook. Deprioritize to P3 regardless of score
+  // (mirrors the has_social assignment gate). Re-scoring after enrichment finds a
+  // handle restores the real priority.
+  if (!lead.instagram_url && !lead.facebook_url) {
+    priority = 3;
+  }
+
   const tier = detectTier(websiteSnapshot, instagramSnapshot);
 
   return {

@@ -31,8 +31,37 @@ const NON_WEBSITE_DOMAINS = [
   "foursquare.com", "nextdoor.com", "groupon.com", "thumbtack.com", "angi.com",
   "bbb.org", "manta.com", "chamberofcommerce.com", "loc8nearme.com",
   "booking.com", "wellness.com", "spafinder.com", "expertise.com", "birdeye.com",
+  // Salon/places discovery apps that rank for any salon query and whose own brand
+  // socials get mis-attributed (e.g. atly.com → @atly / @atlyofficial).
+  "atly.com", "salonfinder.com",
   ...BOOKING_PLATFORM_DOMAINS,
 ];
+
+// Generic words that don't identify a specific salon — excluded when building the
+// name tokens used to verify a harvested link actually belongs to this business.
+const GENERIC_NAME_TOKENS = new Set([
+  "salon", "salons", "nail", "nails", "hair", "spa", "spas", "studio", "studios",
+  "beauty", "lash", "lashes", "brow", "brows", "med", "medical", "day", "the",
+  "and", "barber", "barbershop", "wax", "waxing", "skin", "skincare", "tattoo",
+  "co", "llc", "inc", "shop", "bar", "lounge", "boutique",
+]);
+
+/** Distinctive tokens from a salon name (drops generic vertical words). */
+function salonNameTokens(name: string): string[] {
+  return name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3 && !GENERIC_NAME_TOKENS.has(t));
+}
+
+/** True when an organic result plausibly belongs to this salon (title or host
+ *  contains a distinctive name token). Prevents harvesting a directory's or a
+ *  different business's website/socials. */
+function resultMatchesSalon(title: string | undefined, host: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false;
+  const hay = `${title ?? ""} ${host}`.toLowerCase();
+  return tokens.some((t) => hay.includes(t));
+}
 
 export type DiscoveredChannels = {
   website: string | null;
@@ -68,9 +97,14 @@ export async function searchWebForChannels(
   };
   if (!env.serperApiKey || !salonName.trim()) return empty;
 
+  // Ownership guard: without distinctive name tokens we can't tell a real result
+  // from a directory (e.g. atly.com) — skip the search entirely to avoid mis-attribution.
+  const tokens = salonNameTokens(salonName);
+  if (tokens.length === 0) return empty;
+
   const q = city.trim() ? `"${salonName.trim()}" "${city.trim()}"` : `"${salonName.trim()}"`;
 
-  let organic: SerperOrganic[] = [];
+  let organic: SerperOrganic[];
   try {
     const response = await fetch("https://google.serper.dev/search", {
       method: "POST",
@@ -104,6 +138,11 @@ export async function searchWebForChannels(
     const host = hostOf(link);
     if (!host) continue;
 
+    // Only harvest from results that plausibly belong to THIS salon (title/host
+    // shares a distinctive name token). This is what stops "@atly" being saved
+    // for "Shades Nail".
+    if (!resultMatchesSalon(item.title, host, tokens)) continue;
+
     // Social channels
     if (!result.instagram && host.includes("instagram.com")) {
       result.instagram = normalizeInstagramProfile(link);
@@ -120,7 +159,7 @@ export async function searchWebForChannels(
       bookingSet.add(link.split("?")[0]!);
     }
 
-    // The salon's own website = first organic result that isn't a known directory/social/booking
+    // The salon's own website = first matching result that isn't a directory/social/booking
     if (!result.website && !NON_WEBSITE_DOMAINS.some((d) => host.includes(d))) {
       result.website = `https://${host}`;
     }
