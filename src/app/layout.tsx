@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import { QueryProvider } from "@/lib/providers/query";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +27,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}` }} />
       </head>
       <body>
-        {children}
+        <QueryProvider>{children}</QueryProvider>
         <Toaster richColors position="top-right" />
       </body>
     </html>
