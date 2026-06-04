@@ -135,6 +135,13 @@ export function SalesClient({ role }: { role: UserRole }) {
     await addTimelineEvent(id, type, text);
   }
 
+  // Called after an evidence-gated step (DM/reply) already changed things server-side.
+  function handleChanged(stage: LeadStage) {
+    if (activePanel) setActivePanel((prev) => (prev ? { ...prev, stage } : null));
+    setReloadSignal((n) => n + 1);
+    refetch();
+  }
+
   const tabs: Array<{ id: Tab; label: string; icon: React.ElementType; badge?: number }> = [
     { id: "today",  label: "My Day",    icon: Inbox,        badge: urgentCount || undefined },
     { id: "all",    label: "All Leads", icon: List },
@@ -200,6 +207,7 @@ export function SalesClient({ role }: { role: UserRole }) {
           onClose={() => setActivePanel(null)}
           onUpdateStage={handleUpdateStage}
           onAddNote={handleAddNote}
+          onChanged={handleChanged}
         />
       )}
     </div>

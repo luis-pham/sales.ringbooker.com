@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Member = {
@@ -52,7 +53,7 @@ export function TeamTable({ members }: { members: Member[] }) {
               {members.map((m) => (
                 <tr key={m.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-text">{m.name}</div>
+                    <Link href={`/team/${m.id}`} className="font-medium text-violet-700 hover:underline">{m.name}</Link>
                     <div className="text-xs text-muted">{m.email}</div>
                   </td>
                   <td className="px-4 py-3 text-right text-muted">{m.assigned}</td>
