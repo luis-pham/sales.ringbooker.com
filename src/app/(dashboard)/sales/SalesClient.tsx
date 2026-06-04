@@ -17,18 +17,11 @@ type Tab = "today" | "all" | "kanban";
 
 const KANBAN_STAGES: LeadStage[] = ["ready", "sent", "viewed", "hot", "replied", "converted"];
 
+type SalesStats = { byStage: Record<string, number>; total: number };
+
 /** Compact per-stage count strip — admin's at-a-glance pipeline summary.
  *  Counts come from /api/sales/stats (whole table), not the 200-row CRM fetch. */
-function SummaryStrip({ reloadSignal }: { reloadSignal: number }) {
-  const [stats, setStats] = useState<{ byStage: Record<string, number>; total: number } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/sales/stats")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => j && setStats(j.data))
-      .catch(() => null);
-  }, [reloadSignal]);
-
+function SummaryStrip({ stats }: { stats: SalesStats | null }) {
   if (!stats) return null;
 
   return (
@@ -50,11 +43,15 @@ function SummaryStrip({ reloadSignal }: { reloadSignal: number }) {
   );
 }
 
+const KANBAN_CARD_LIMIT = 8;
+
 function MiniKanban({
   leads,
+  stats,
   onSelect,
 }: {
   leads: PipelineLead[];
+  stats: SalesStats | null;
   onSelect: (l: PipelineLead) => void;
 }) {
   return (
@@ -62,16 +59,20 @@ function MiniKanban({
       {KANBAN_STAGES.map((stage) => {
         const rows = leads.filter((l) => l.stage === stage);
         const meta = STAGE_META[stage];
+        // Real whole-table count (falls back to the in-view count until stats load).
+        const realCount = stats ? stats.byStage[stage] ?? 0 : rows.length;
+        const shown = rows.slice(0, KANBAN_CARD_LIMIT);
+        const hidden = realCount - shown.length;
         return (
           <div key={stage} className="rounded-lg border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">
                 {meta.label}
               </span>
-              <span className="text-xs text-muted">{rows.length}</span>
+              <span className="text-xs font-medium text-text">{realCount}</span>
             </div>
             <div className="space-y-2 p-2">
-              {rows.slice(0, 8).map((lead) => (
+              {shown.map((lead) => (
                 <button
                   key={lead.id}
                   onClick={() => onSelect(lead)}
@@ -81,8 +82,11 @@ function MiniKanban({
                   <div className="mt-0.5 text-xs text-muted truncate">{lead.location}</div>
                 </button>
               ))}
-              {rows.length === 0 && (
+              {shown.length === 0 && (
                 <div className="py-2 text-center text-xs text-muted">Empty</div>
+              )}
+              {hidden > 0 && (
+                <div className="py-1 text-center text-xs text-muted">+{hidden} more</div>
               )}
             </div>
           </div>
@@ -99,6 +103,15 @@ export function SalesClient({ role }: { role: UserRole }) {
   const [tab, setTab] = useState<Tab>(isAdmin ? "kanban" : "today");
   const [activePanel, setActivePanel] = useState<PipelineLead | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
+  const [stats, setStats] = useState<SalesStats | null>(null);
+
+  // Whole-table per-stage counts for the summary strip + Kanban headers.
+  useEffect(() => {
+    fetch("/api/sales/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j && setStats(j.data))
+      .catch(() => null);
+  }, [reloadSignal]);
 
   const urgentCount = leads.filter(
     (l) => l.stage !== "converted" && l.stage !== "churned"
@@ -131,7 +144,7 @@ export function SalesClient({ role }: { role: UserRole }) {
   return (
     <div className="space-y-5">
       {/* Admin pipeline summary */}
-      {isAdmin && <SummaryStrip reloadSignal={reloadSignal} />}
+      {isAdmin && <SummaryStrip stats={stats} />}
 
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-border">
@@ -175,7 +188,7 @@ export function SalesClient({ role }: { role: UserRole }) {
             <LeadTable onSelectLead={setActivePanel} reloadSignal={reloadSignal} />
           )}
           {tab === "kanban" && (
-            <MiniKanban leads={leads} onSelect={setActivePanel} />
+            <MiniKanban leads={leads} stats={stats} onSelect={setActivePanel} />
           )}
         </>
       )}
