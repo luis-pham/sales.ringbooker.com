@@ -66,15 +66,14 @@ export async function handleEnrichLead(payload: EnrichLeadPayload) {
   const websiteSoFar = (updates.website_url as string | undefined) ?? lead.website_url;
   const hasNoOnlinePresence = !websiteSoFar && !lead.instagram_url && !lead.facebook_url;
 
-  // Case 1: No website at all in Maps → run web search to find website + socials
+  // Case 1: No online presence in Maps → run web search to find SOCIALS (never a
+  // website — Maps is the only website source, so we can't mis-attribute one).
   if (hasNoOnlinePresence && passesDiscoveryGate) {
     discovered = await searchWebForChannels(lead.name, lead.city ?? "", lead.id);
-    if (discovered.website) updates.website_url = discovered.website;
     if (discovered.instagram) updates.instagram_url = discovered.instagram;
     if (discovered.facebook) updates.facebook_url = discovered.facebook;
     if (discovered.tiktok) updates.tiktok_url = discovered.tiktok;
-    console.log(`[Enrich] Web discovery (no website) for ${lead.id}: ${[
-      discovered.website && "website",
+    console.log(`[Enrich] Web discovery (no presence) for ${lead.id}: ${[
       discovered.instagram && "instagram",
       discovered.facebook && "facebook",
       discovered.tiktok && "tiktok",
