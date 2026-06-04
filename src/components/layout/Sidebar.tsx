@@ -1,17 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Bot,
   BrainCircuit,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   LayoutDashboard,
   ScrollText,
   Scissors,
   Search,
+  Settings,
   Share2,
   Target,
   Users,
@@ -19,17 +22,28 @@ import {
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 
-const navItems = [
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] };
+
+// Top-level: everyone's day-to-day work.
+const MAIN_ITEMS: NavItem[] = [
   { href: "/analytics", label: "Overview", icon: BarChart3, roles: ["admin"] },
   { href: "/sales", label: "Sales CRM", icon: Target, roles: ["admin", "outreacher", "viewer"] },
   { href: "/leads", label: "Leads", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
-  { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
   { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
+];
+
+// Grouped under "Settings": configure-once / monitor (admin).
+const SETTINGS_ITEMS: NavItem[] = [
   { href: "/assignment", label: "Assignment", icon: Share2, roles: ["admin"] },
+  { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
   { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
   { href: "/jobs", label: "Jobs", icon: BrainCircuit, roles: ["admin"] },
   { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
-] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
+];
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || (href !== "/" && pathname.startsWith(href));
+}
 
 export function Sidebar({
   role,
@@ -41,7 +55,34 @@ export function Sidebar({
   onToggle: () => void;
 }) {
   const pathname = usePathname();
-  const visible = navItems.filter((item) => item.roles.includes(role));
+  const mainVisible = MAIN_ITEMS.filter((item) => item.roles.includes(role));
+  const settingsVisible = SETTINGS_ITEMS.filter((item) => item.roles.includes(role));
+  const settingsActive = settingsVisible.some((item) => isActive(pathname, item.href));
+  const [settingsOpen, setSettingsOpen] = useState(settingsActive);
+
+  const linkClass = (active: boolean) =>
+    cn(
+      "flex h-10 items-center rounded-md text-sm font-medium transition-colors",
+      collapsed ? "justify-center px-0" : "gap-3 px-3",
+      active
+        ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
+        : "text-muted hover:bg-surface-muted hover:text-text",
+    );
+
+  function navLink(item: NavItem, indent = false) {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        title={collapsed ? item.label : undefined}
+        className={cn(linkClass(isActive(pathname, item.href)), indent && !collapsed && "pl-9")}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!collapsed && item.label}
+      </Link>
+    );
+  }
 
   return (
     <aside
@@ -68,27 +109,34 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-        {visible.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex h-10 items-center rounded-md text-sm font-medium transition-colors",
-                collapsed ? "justify-center px-0" : "gap-3 px-3",
-                active
-                  ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
-                  : "text-muted hover:bg-surface-muted hover:text-text",
+        {mainVisible.map((item) => navLink(item))}
+
+        {settingsVisible.length > 0 && (
+          collapsed ? (
+            <>
+              <div className="my-1 border-t border-border" />
+              {settingsVisible.map((item) => navLink(item))}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setSettingsOpen((o) => !o)}
+                className={cn(linkClass(settingsActive && !settingsOpen), "w-full justify-between")}
+              >
+                <span className="flex items-center gap-3">
+                  <Settings className="h-4 w-4 shrink-0" />
+                  Settings
+                </span>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", settingsOpen ? "" : "-rotate-90")} />
+              </button>
+              {settingsOpen && (
+                <div className="space-y-1">
+                  {settingsVisible.map((item) => navLink(item, true))}
+                </div>
               )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && item.label}
-            </Link>
-          );
-        })}
+            </>
+          )
+        )}
       </nav>
 
       <div className="shrink-0 border-t border-border p-2">

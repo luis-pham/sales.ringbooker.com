@@ -6,12 +6,13 @@ import {
   BarChart3,
   Bot,
   BrainCircuit,
-  KanbanSquare,
   LayoutDashboard,
   MoreHorizontal,
   ScrollText,
   Scissors,
   Search,
+  Share2,
+  Target,
   Users,
   X,
 } from "lucide-react";
@@ -19,15 +20,18 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 
+// Primary = day-to-day work (bottom bar). Mirrors the desktop sidebar's main group.
 const primaryItems = [
-  { href: "/", label: "Pipeline", icon: KanbanSquare, roles: ["admin", "outreacher", "viewer"] },
+  { href: "/analytics", label: "Overview", icon: BarChart3, roles: ["admin"] },
+  { href: "/sales", label: "Sales CRM", icon: Target, roles: ["admin", "outreacher", "viewer"] },
   { href: "/leads", label: "Leads", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
-  { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
   { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
 ] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
 
+// Secondary = the "Settings" group, shown in the "More" sheet.
 const secondaryItems = [
-  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["admin"] },
+  { href: "/assignment", label: "Assignment", icon: Share2, roles: ["admin"] },
+  { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
   { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
   { href: "/jobs", label: "Jobs", icon: BrainCircuit, roles: ["admin"] },
   { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
