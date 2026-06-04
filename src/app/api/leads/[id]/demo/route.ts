@@ -77,3 +77,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const data = await createDemo(id, user.id);
   return NextResponse.json({ data });
 }
+
+/** PATCH /api/leads/[id]/demo — assigned rep marks the demo as quality-checked.
+ *  Required before sending the DM (gates the ready → sent transition). */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const security = enforceMutationSecurity(request, { key: "lead:demo:qa", limit: 30, windowMs: 60_000 });
+  if (security) return security;
+  const { user, profile } = await getSessionUser();
+  if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  const adminClient = createAdminClient();
+  try {
+    await requireLeadAccess(adminClient, id, profile);
+  } catch {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { data: demo } = await adminClient
+    .from("ringbooker_demos")
+    .select("id")
+    .eq("lead_id", id)
+    .eq("status", "prepared")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+  if (!demo) return NextResponse.json({ error: "No prepared demo to verify" }, { status: 400 });
+
+  const { error } = await adminClient
+    .from("ringbooker_demos")
+    .update({ qa_checked_at: new Date().toISOString(), qa_checked_by: user.id })
+    .eq("id", demo.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ data: { qaChecked: true } });
+}

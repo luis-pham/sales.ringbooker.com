@@ -1,5 +1,4 @@
 import { extractInstagramHandle } from "@/lib/enrichment/website-crawler";
-import { createDemo } from "@/lib/demo/demo-service";
 import { calculateScore } from "@/lib/scoring/scoring-engine";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -45,9 +44,9 @@ export async function handleScoreLead(payload: ScoreLeadPayload) {
     .eq("id", payload.leadId)
     .in("status", ["new", "enriching", "enriched", "scored", "outreach_ready"]);
 
-  if (result.priority === 1) {
-    await createDemo(payload.leadId, null).catch(() => null);
-  }
+  // Demo creation is deferred to the nightly window (US asleep) right before the
+  // daily assignment cycle — see topUpPoolDemos() in the worker. We no longer
+  // create demos here at scoring time.
 
   // Instagram fetch strategy (cost optimization):
   //   P1 → individual immediate fetch (high value, demo needs the data now)

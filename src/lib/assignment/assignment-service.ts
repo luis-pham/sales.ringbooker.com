@@ -11,7 +11,8 @@
  * Already-assigned leads are never reassigned; touched leads stay with a removed rep.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { AssignmentConfig, AssignmentPoolStats, AssignmentPriorityMode } from "@/types";
+import { createDemo } from "@/lib/demo/demo-service";
+import type { AssignmentConfig, AssignmentPoolStats, AssignmentPriorityMode, SalonLead } from "@/types";
 
 type Db = ReturnType<typeof createAdminClient>;
 
@@ -86,6 +87,90 @@ async function fetchPool(db: Db, verticals: string[], priorities: number[], limi
   return out;
 }
 
+/** Keep only candidates whose lead has a 'prepared' (QA-passable) demo ready. */
+async function filterToPreparedDemos(db: Db, candidates: Candidate[]): Promise<Candidate[]> {
+  if (candidates.length === 0) return [];
+  const ids = candidates.map((c) => c.id);
+  const { data } = await db
+    .from("ringbooker_demos")
+    .select("lead_id")
+    .eq("status", "prepared")
+    .in("lead_id", ids);
+  const ready = new Set((data ?? []).map((d) => d.lead_id as string));
+  return candidates.filter((c) => ready.has(c.id));
+}
+
+/** Count of active outreachers (assignment capacity is reps × max_per_day). */
+async function activeOutreacherCount(db: Db): Promise<number> {
+  const { count } = await db
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "outreacher")
+    .eq("is_active", true);
+  return count ?? 0;
+}
+
+/** A lead has enough context to build a quality demo. */
+function hasDemoQualityInputs(lead: Pick<SalonLead, "name" | "city" | "state" | "website_url" | "instagram_url">): boolean {
+  return Boolean(lead.name && lead.city && lead.state && (lead.website_url || lead.instagram_url));
+}
+
+export type DemoTopUpResult = { created: number; failed: number; skipped: number };
+
+/**
+ * Pre-build demos for the leads that the next assignment cycle will hand out, so
+ * the RingBooker demo API is hit while the US is asleep (not during enrichment,
+ * not at assignment time). Tops up the top-of-pool leads up to the daily
+ * capacity (active reps × max_per_day); creates at most `maxThisTick` per call so
+ * the worker can spread the load across the nightly window.
+ */
+export async function topUpPoolDemos(db: Db = createAdminClient(), maxThisTick = 3): Promise<DemoTopUpResult> {
+  const config = await getAssignmentConfig(db);
+  if (config.is_paused) return { created: 0, failed: 0, skipped: 0 };
+
+  const reps = await activeOutreacherCount(db);
+  const capacity = reps * config.max_per_day;
+  if (capacity === 0) return { created: 0, failed: 0, skipped: 0 };
+
+  // Top `capacity` assignable leads (same ordering assignment uses).
+  const pool = await fetchPool(db, config.verticals, prioritiesForMode(config.priority_mode), capacity);
+  if (pool.length === 0) return { created: 0, failed: 0, skipped: 0 };
+
+  // Which of them already have a demo (any status) — skip those.
+  const ids = pool.map((p) => p.id);
+  const { data: existing } = await db.from("ringbooker_demos").select("lead_id").in("lead_id", ids);
+  const hasDemo = new Set((existing ?? []).map((d) => d.lead_id as string));
+  const missing = pool.filter((p) => !hasDemo.has(p.id)).slice(0, maxThisTick);
+  if (missing.length === 0) return { created: 0, failed: 0, skipped: 0 };
+
+  // Input quality gate before spending a RingBooker API call.
+  const { data: leadRows } = await db
+    .from("salon_leads")
+    .select("id, name, city, state, website_url, instagram_url")
+    .in("id", missing.map((m) => m.id));
+  const leadById = new Map((leadRows ?? []).map((l) => [l.id as string, l]));
+
+  let created = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const cand of missing) {
+    const lead = leadById.get(cand.id) as Pick<SalonLead, "id" | "name" | "city" | "state" | "website_url" | "instagram_url"> | undefined;
+    if (!lead || !hasDemoQualityInputs(lead)) { skipped += 1; continue; }
+    try {
+      const { demoId, demoUrl } = await createDemo(cand.id, null);
+      if (!demoUrl) {
+        await db.from("ringbooker_demos").update({ status: "failed" }).eq("id", demoId);
+        failed += 1;
+      } else {
+        created += 1;
+      }
+    } catch {
+      failed += 1; // API error — leave lead demo-less; retried on a later tick.
+    }
+  }
+  return { created, failed, skipped };
+}
+
 /** Active outreachers and how many more leads each can take today (flow cap). */
 async function repCapacities(db: Db, maxPerDay: number): Promise<Array<{ id: string; remaining: number }>> {
   const { data: reps } = await db
@@ -145,7 +230,11 @@ export async function runAssignmentCycle(db: Db = createAdminClient()): Promise<
   const totalCapacity = caps.reduce((s, r) => s + r.remaining, 0);
 
   // 3. Pool (ordered P1→P3 then score), capped to total capacity to limit work.
-  const pool = await fetchPool(db, config.verticals, prioritiesForMode(config.priority_mode), totalCapacity);
+  //    Only leads that already have a 'prepared' demo are assignable — demos are
+  //    built the night before (topUpPoolDemos), so a rep never gets a lead with no
+  //    (or a broken) demo to send.
+  const rawPool = await fetchPool(db, config.verticals, prioritiesForMode(config.priority_mode), totalCapacity);
+  const pool = await filterToPreparedDemos(db, rawPool);
   if (pool.length === 0) {
     await db.from("assignment_config").update({ last_run_at: new Date().toISOString(), last_run_assigned: 0 }).eq("id", true);
     return { status: "empty_pool", assigned: 0, reclaimed, perRep: {} };
