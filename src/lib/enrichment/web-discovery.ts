@@ -34,6 +34,10 @@ const NON_WEBSITE_DOMAINS = [
   // Salon/places discovery apps that rank for any salon query and whose own brand
   // socials get mis-attributed (e.g. atly.com → @atly / @atlyofficial).
   "atly.com", "salonfinder.com",
+  // Local-news / directory media that publish articles ABOUT salons — their article
+  // titles contain the salon name (so they pass a title match) but the site/socials
+  // belong to the publisher, not the salon (e.g. communityimpact.com → @communityimpactnews).
+  "communityimpact.com", "patch.com", "yahoo.com", "msn.com", "medium.com",
   ...BOOKING_PLATFORM_DOMAINS,
 ];
 
@@ -80,6 +84,14 @@ function hostOf(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Registrable domain (eTLD+1 approximation) — strips subdomains so a directory that
+ *  mints per-business subdomains (e.g. southern-roots-salon.wheree.com) is judged by
+ *  its real domain "wheree.com", not the salon-named subdomain. */
+function registrableDomain(host: string): string {
+  const parts = host.split(".");
+  return parts.length <= 2 ? host : parts.slice(-2).join(".");
 }
 
 /**
@@ -159,8 +171,15 @@ export async function searchWebForChannels(
       bookingSet.add(link.split("?")[0]!);
     }
 
-    // The salon's own website = first matching result that isn't a directory/social/booking
-    if (!result.website && !NON_WEBSITE_DOMAINS.some((d) => host.includes(d))) {
+    // The salon's own website = first result whose HOST itself carries a distinctive
+    // salon-name token. A matching *title* isn't enough — news/directory articles
+    // about the salon (e.g. communityimpact.com) have a matching title but the domain
+    // belongs to the publisher. Better to leave website null than attribute a wrong one.
+    if (
+      !result.website &&
+      !NON_WEBSITE_DOMAINS.some((d) => host.includes(d)) &&
+      tokens.some((t) => registrableDomain(host).includes(t))
+    ) {
       result.website = `https://${host}`;
     }
   }
