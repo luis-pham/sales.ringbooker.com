@@ -6,6 +6,7 @@ import { OverviewClient } from "./OverviewClient";
 type Db = ReturnType<typeof createAdminClient>;
 
 const ACTIVE_STAGES = ["ready", "sent", "viewed", "hot", "replied", "signedup", "onboarding", "trial"];
+const IN_PROGRESS_STAGES = ["sent", "viewed", "hot", "replied", "signedup", "onboarding", "trial"];
 const SENT_OR_BEYOND = ["sent", "viewed", "hot", "replied", "signedup", "onboarding", "trial", "converted"];
 const VIEWED_OR_BEYOND = ["viewed", "hot", "replied", "signedup", "onboarding", "trial", "converted"];
 
@@ -34,6 +35,20 @@ async function getOverviewData() {
   const viewedOrBeyond = VIEWED_OR_BEYOND.reduce((a, s) => a + get(s), 0);
   const viewRate = sentOrBeyond > 0 ? Math.round((viewedOrBeyond / sentOrBeyond) * 100) : 0;
   const funnel = STAGE_ORDER.map((stage) => ({ stage, count: get(stage) }));
+  const inProgress = IN_PROGRESS_STAGES.reduce((a, s) => a + get(s), 0);
+  const readyTotal = get("ready");
+
+  // Assignable pool by priority: ready · has_social · unassigned · scored.
+  const [poolP1, poolP2, poolP3] = await Promise.all([
+    countReadyAssignable(db, 1),
+    countReadyAssignable(db, 2),
+    countReadyAssignable(db, 3),
+  ]);
+  const inventory = {
+    inProgress,
+    readyTotal,
+    pool: { p1: poolP1, p2: poolP2, p3: poolP3, total: poolP1 + poolP2 + poolP3 },
+  };
 
   // ── Time-bounded counts (exact, via head-count queries) ─────────────────────
   const [
@@ -139,9 +154,21 @@ async function getOverviewData() {
   );
 
   return {
-    pipeline: { activeLeads, hotNow, dmsSentThisWeek, viewsThisWeek, viewRate, convertedThisMonth, trialConvertedRate, avgDemoPct, funnel, velocity, trend, alerts },
+    pipeline: { activeLeads, hotNow, dmsSentThisWeek, viewsThisWeek, viewRate, convertedThisMonth, trialConvertedRate, avgDemoPct, funnel, velocity, trend, alerts, inventory },
     team: { activeOutreachers: membersList.length, teamDmsThisWeek: dmsSentThisWeek, members: membersList },
   };
+}
+
+// Count ready leads that are actually assignable (has social, unassigned) for a priority.
+async function countReadyAssignable(db: Db, priority: number): Promise<number> {
+  const { count } = await db
+    .from("salon_leads")
+    .select("id, lead_scores!inner(priority)", { count: "exact", head: true })
+    .is("assigned_to", null)
+    .eq("has_social", true)
+    .eq("sales_stage", "ready")
+    .eq("lead_scores.priority", priority);
+  return count ?? 0;
 }
 
 // Head-count helpers — return exact row counts without fetching rows (no 1000-row cap).

@@ -8,7 +8,59 @@ import { TrendChart } from "@/components/overview/TrendChart";
 import { AlertsBlock } from "@/components/overview/AlertsBlock";
 import { VelocityBlock } from "@/components/overview/VelocityBlock";
 import { TeamTable } from "@/components/overview/TeamTable";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { LeadStage } from "@/types";
+
+/** Splits "active leads" into what's actually being worked vs sitting in the pool. */
+function InventoryCard({
+  inventory,
+}: {
+  inventory: {
+    inProgress: number;
+    readyTotal: number;
+    pool: { p1: number; p2: number; p3: number; total: number };
+  };
+}) {
+  const notAssignable = Math.max(0, inventory.readyTotal - inventory.pool.total);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Lead inventory</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* In progress */}
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs text-muted">In progress</div>
+            <div className="mt-1 text-2xl font-semibold text-violet-700">{inventory.inProgress}</div>
+            <div className="mt-0.5 text-xs text-muted">Being worked (sent → trial)</div>
+          </div>
+
+          {/* Assignable pool by priority */}
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs text-muted">Assignable pool</div>
+            <div className="mt-1 text-2xl font-semibold text-emerald-600">{inventory.pool.total}</div>
+            <div className="mt-1 flex flex-wrap gap-2 text-xs">
+              <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">P1 {inventory.pool.p1}</span>
+              <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">P2 {inventory.pool.p2}</span>
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">P3 {inventory.pool.p3}</span>
+            </div>
+            <div className="mt-1 text-xs text-muted">Ready · has social · unassigned</div>
+          </div>
+
+          {/* Raw ready */}
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xs text-muted">Raw ready</div>
+            <div className="mt-1 text-2xl font-semibold text-text">{inventory.readyTotal}</div>
+            <div className="mt-0.5 text-xs text-muted">
+              {notAssignable} not assignable (no social / unscored / assigned)
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 type Pipeline = {
   activeLeads: number;
@@ -27,6 +79,11 @@ type Pipeline = {
   };
   trend: Array<{ date: string; label: string; dmsSent: number; views: number; conversions: number }>;
   alerts: { stuckLeads: number; hotUncontacted: number; trialOverdue: number };
+  inventory: {
+    inProgress: number;
+    readyTotal: number;
+    pool: { p1: number; p2: number; p3: number; total: number };
+  };
 };
 
 type Team = {
@@ -99,7 +156,7 @@ export function OverviewClient({
             <StatCard
               label="Active leads"
               value={pipeline.activeLeads}
-              sub="In funnel (excl. converted/churned)"
+              sub="Excl. converted / ghosted / churned"
             />
             <StatCard
               label="Hot right now"
@@ -139,6 +196,9 @@ export function OverviewClient({
               accent={pipeline.avgDemoPct >= 70 ? "emerald" : pipeline.avgDemoPct >= 40 ? "amber" : "red"}
             />
           </div>
+
+          {/* Lead inventory — breaks "active" into in-progress vs assignable pool vs raw ready */}
+          <InventoryCard inventory={pipeline.inventory} />
 
           {/* Alerts */}
           {alertTotal > 0 && <AlertsBlock alerts={pipeline.alerts} />}
