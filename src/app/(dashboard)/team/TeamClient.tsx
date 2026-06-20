@@ -10,11 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 
+type TeamRole = "admin" | "outreacher" | "viewer";
+type ProfileRow = { id: string; email: string; role: TeamRole; is_active: boolean };
+
 export function TeamClient({
   profiles,
   invitations,
 }: {
-  profiles: Array<{ id: string; email: string; role: string; is_active: boolean }>;
+  profiles: ProfileRow[];
   invitations: Array<{ id: string; email: string; role: string; token: string; accepted_at: string | null }>;
 }) {
   const router = useRouter();
@@ -22,6 +25,7 @@ export function TeamClient({
   const [role, setRole] = useState("outreacher");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
 
   async function invite() {
     if (!email.trim()) return;
@@ -47,6 +51,23 @@ export function TeamClient({
     await navigator.clipboard.writeText(link);
     setCopied(token);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function updateMember(member: ProfileRow, updates: Partial<Pick<ProfileRow, "role" | "is_active">>) {
+    setSavingMemberId(member.id);
+    const response = await fetch(`/api/team/${member.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    const json = (await response.json().catch(() => ({}))) as { error?: string };
+    setSavingMemberId(null);
+    if (!response.ok) {
+      toast.error(json.error ?? "Update failed");
+      return;
+    }
+    toast.success("Member updated");
+    router.refresh();
   }
 
   const pending = invitations.filter((i) => !i.accepted_at);
@@ -91,17 +112,48 @@ export function TeamClient({
             {profiles.length === 0 && (
               <p className="text-sm text-muted">No members yet.</p>
             )}
-            {profiles.map((p) => (
-              <div key={p.id} className="flex items-center justify-between rounded-md border border-border p-3">
-                <div>
-                  <div className="text-sm font-medium text-text">{p.email}</div>
-                  <div className="text-xs text-muted capitalize">{p.role}</div>
+            {profiles.map((p) => {
+              const isSaving = savingMemberId === p.id;
+              return (
+                <div key={p.id} className="flex flex-col gap-3 rounded-md border border-border p-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-text">{p.email}</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge variant={p.is_active ? "emerald" : "slate"}>
+                        {p.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                      <span className="text-xs text-muted capitalize">{p.role}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Select
+                      aria-label={`Role for ${p.email}`}
+                      value={p.role}
+                      disabled={isSaving}
+                      onChange={(event) => {
+                        const nextRole = event.target.value as TeamRole;
+                        if (nextRole !== p.role) updateMember(p, { role: nextRole });
+                      }}
+                      className="sm:w-36"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="outreacher">Outreacher</option>
+                      <option value="viewer">Viewer</option>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant={p.is_active ? "danger" : "outline"}
+                      size="sm"
+                      disabled={isSaving}
+                      onClick={() => updateMember(p, { is_active: !p.is_active })}
+                      className="sm:w-28"
+                    >
+                      {isSaving ? "Saving..." : p.is_active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </div>
                 </div>
-                <Badge variant={p.is_active ? "emerald" : "slate"}>
-                  {p.is_active ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 

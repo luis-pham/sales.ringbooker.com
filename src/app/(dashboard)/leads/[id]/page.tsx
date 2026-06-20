@@ -63,7 +63,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           <h1 className="mt-1 overflow-wrap-anywhere text-xl font-semibold text-text">{lead.name}</h1>
           <p className="text-sm text-muted">{lead.address ?? [lead.city, lead.state].filter(Boolean).join(", ")}</p>
         </div>
-        <LeadActions leadId={lead.id} />
+        <LeadActions leadId={lead.id} isAdmin={profile.role === "admin"} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-[1fr_360px]">

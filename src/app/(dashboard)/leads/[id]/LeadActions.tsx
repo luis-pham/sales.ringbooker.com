@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Bot, RefreshCw, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function LeadActions({ leadId }: { leadId: string }) {
+export function LeadActions({ leadId, isAdmin }: { leadId: string; isAdmin: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -24,14 +24,18 @@ export function LeadActions({ leadId }: { leadId: string }) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => run("enrich")} disabled={Boolean(loading)}>
-        <RefreshCw className="h-4 w-4" />
-        {loading === "enrich" ? "Queueing..." : "Enrich"}
-      </Button>
-      <Button variant="outline" onClick={() => run("score")} disabled={Boolean(loading)}>
-        <Star className="h-4 w-4" />
-        {loading === "score" ? "Queueing..." : "Score"}
-      </Button>
+      {isAdmin ? (
+        <>
+          <Button variant="outline" onClick={() => run("enrich")} disabled={Boolean(loading)}>
+            <RefreshCw className="h-4 w-4" />
+            {loading === "enrich" ? "Queueing..." : "Enrich"}
+          </Button>
+          <Button variant="outline" onClick={() => run("score")} disabled={Boolean(loading)}>
+            <Star className="h-4 w-4" />
+            {loading === "score" ? "Queueing..." : "Score"}
+          </Button>
+        </>
+      ) : null}
       <Button onClick={() => run("demo")} disabled={Boolean(loading)}>
         <Bot className="h-4 w-4" />
         {loading === "demo" ? "Building..." : "Build demo"}

@@ -12,9 +12,21 @@ const RANGES = [
 ];
 
 const PROVIDER_LABELS: Record<string, string> = {
-  serper: "Serper Maps",
-  google_places: "Google Places",
-  apify: "Apify",
+  serper: "Search API",
+  google_places: "Places API",
+  apify: "Social API",
+  cloudflare: "Browser API",
+};
+
+const ENDPOINT_LABELS: Record<string, string> = {
+  maps_search: "Search businesses by location",
+  reviews: "Fetch business reviews",
+  web_search: "Search the web",
+  place_details: "Fetch business details",
+  instagram_scrape: "Fetch social profile",
+  instagram_scrape_batch: "Fetch social profiles (batch)",
+  browser_rendering_content: "Read page content",
+  browser_rendering_markdown: "Extract page content",
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
@@ -43,6 +55,19 @@ type Props = {
   totalCost: number;
   range: string;
 };
+
+function toTitleLabel(value: string) {
+  const label = value.replaceAll("_", " ");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function getProviderLabel(provider: string) {
+  return PROVIDER_LABELS[provider] ?? `${toTitleLabel(provider)} API`;
+}
+
+function getEndpointLabel(endpoint: string) {
+  return ENDPOINT_LABELS[endpoint] ?? toTitleLabel(endpoint);
+}
 
 export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: Props) {
   const router = useRouter();
@@ -97,7 +122,7 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
         {providerEntries.slice(0, 2).map(([provider, stats]) => (
           <Card key={provider}>
             <CardContent className="p-4">
-              <div className="text-xs text-muted">{PROVIDER_LABELS[provider] ?? provider}</div>
+              <div className="text-xs text-muted">{getProviderLabel(provider)}</div>
               <div className="mt-1 text-2xl font-semibold text-text">{stats.calls.toLocaleString()}</div>
               <div className="text-xs text-muted">${stats.cost.toFixed(3)}</div>
             </CardContent>
@@ -114,7 +139,7 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
               <div key={provider} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${PROVIDER_COLORS[provider] ?? "bg-surface-muted text-muted"}`}>
-                    {PROVIDER_LABELS[provider] ?? provider}
+                    {getProviderLabel(provider)}
                   </span>
                 </div>
                 <div className="flex items-center gap-6 text-sm">
@@ -156,10 +181,10 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
                 <tr key={log.id} className="border-b border-border last:border-0 hover:bg-surface-muted/50">
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PROVIDER_COLORS[log.provider] ?? "bg-surface-muted text-muted"}`}>
-                      {PROVIDER_LABELS[log.provider] ?? log.provider}
+                      {getProviderLabel(log.provider)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted">{log.endpoint}</td>
+                  <td className="px-4 py-3 text-xs text-muted">{getEndpointLabel(log.endpoint)}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium ${log.status === "success" ? "text-success" : "text-danger"}`}>
                       {log.status}
