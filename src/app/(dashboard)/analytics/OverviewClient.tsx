@@ -1,15 +1,36 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { BarChart3, Users } from "lucide-react";
 import { StatCard } from "@/components/overview/StatCard";
-import { FunnelChart } from "@/components/overview/FunnelChart";
-import { TrendChart } from "@/components/overview/TrendChart";
-import { AlertsBlock } from "@/components/overview/AlertsBlock";
-import { VelocityBlock } from "@/components/overview/VelocityBlock";
-import { TeamTable } from "@/components/overview/TeamTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { LeadStage } from "@/types";
+
+const FunnelChart = dynamic(() => import("@/components/overview/FunnelChart").then((mod) => mod.FunnelChart), {
+  ssr: false,
+  loading: () => null,
+});
+
+const TrendChart = dynamic(() => import("@/components/overview/TrendChart").then((mod) => mod.TrendChart), {
+  ssr: false,
+  loading: () => null,
+});
+
+const AlertsBlock = dynamic(() => import("@/components/overview/AlertsBlock").then((mod) => mod.AlertsBlock), {
+  ssr: false,
+  loading: () => null,
+});
+
+const VelocityBlock = dynamic(() => import("@/components/overview/VelocityBlock").then((mod) => mod.VelocityBlock), {
+  ssr: false,
+  loading: () => null,
+});
+
+const TeamTable = dynamic(() => import("@/components/overview/TeamTable").then((mod) => mod.TeamTable), {
+  ssr: false,
+  loading: () => null,
+});
 
 /** Splits "active leads" into what's actually being worked vs sitting in the pool. */
 function InventoryCard({

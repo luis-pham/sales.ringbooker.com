@@ -1,10 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { KanbanSquare, List, Inbox } from "lucide-react";
-import { LeadInbox } from "@/components/sales/LeadInbox";
 import { LeadTable } from "@/components/sales/LeadTable";
-import { LeadPanel } from "@/components/sales/LeadPanel";
 import { useLeads } from "@/hooks/useLeads";
 import { getNextAction } from "@/lib/getNextAction";
 import type { PipelineLead, LeadStage, TimelineEvent, UserRole } from "@/types";
@@ -12,6 +11,16 @@ import type { PipelineLead, LeadStage, TimelineEvent, UserRole } from "@/types";
 // Inline mini-kanban to avoid breaking existing PipelineClient
 import { STAGE_META, STAGE_ORDER } from "@/lib/stageConfig";
 import { StageBadge } from "@/components/sales/StageBadge";
+
+const LeadInbox = dynamic(() => import("@/components/sales/LeadInbox").then((mod) => mod.LeadInbox), {
+  ssr: false,
+  loading: () => null,
+});
+
+const LeadPanel = dynamic(() => import("@/components/sales/LeadPanel").then((mod) => mod.LeadPanel), {
+  ssr: false,
+  loading: () => null,
+});
 
 type Tab = "today" | "all" | "kanban";
 
