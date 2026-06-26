@@ -37,12 +37,13 @@ export async function handleScoreLead(payload: ScoreLeadPayload) {
     { onConflict: "lead_id,scoring_version" },
   );
 
-  const nextStatus = result.priority === 1 ? "outreach_ready" : "scored";
+  const hasSocial = (lead as SalonLead & { has_social: boolean | null }).has_social === true;
+  const nextStatus = hasSocial ? "outreach_ready" : "no_social";
   await adminClient
     .from("salon_leads")
     .update({ status: nextStatus, scored_at: new Date().toISOString() })
     .eq("id", payload.leadId)
-    .in("status", ["new", "enriching", "enriched", "scored", "outreach_ready"]);
+    .in("status", ["new", "enriching", "enriched", "scored", "outreach_ready", "no_social"]);
 
   // Demo creation is deferred to the nightly window (US asleep) right before the
   // daily assignment cycle — see topUpPoolDemos() in the worker. We no longer

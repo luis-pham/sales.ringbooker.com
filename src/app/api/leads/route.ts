@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     .limit(limit);
 
   if (profile.role !== "admin") query = query.eq("assigned_to", profile.id);
-  if (status) query = query.eq("status", status);
+  if (status && profile.role === "admin") query = query.eq("status", status);
   if (city) query = query.eq("city", city);
   if (q) query = query.ilike("name", `%${q}%`);
 

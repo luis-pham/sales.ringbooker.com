@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     ? adminClient.from("salon_leads").select(SELECT_FIELDS, { count: "exact" })
     : adminClient.from("salon_leads").select(SELECT_FIELDS);
 
+  query = query.eq("status", "outreach_ready");
   query = query.order("updated_at", { ascending: false });
   query = query.order("last_viewed_at", { referencedTable: "ringbooker_demos", ascending: false }).limit(1, { referencedTable: "ringbooker_demos" });
   query = query.order("created_at", { referencedTable: "outreach_events", ascending: false }).limit(5, { referencedTable: "outreach_events" });

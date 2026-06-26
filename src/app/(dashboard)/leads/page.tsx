@@ -6,17 +6,10 @@ import { requireAuth } from "@/lib/auth/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const STATUS_OPTIONS = [
-  { value: "new", label: "New" },
-  { value: "enriching", label: "Enriching" },
+  { value: "outreach_ready", label: "Outreach Ready" },
+  { value: "no_social", label: "No Social" },
   { value: "enriched", label: "Enriched" },
-  { value: "scored", label: "Scored" },
-  { value: "outreach_ready", label: "Outreach ready" },
-  { value: "dm_sent", label: "DM sent" },
-  { value: "replied", label: "Replied" },
-  { value: "demo_shared", label: "Demo shared" },
-  { value: "converted", label: "Converted" },
-  { value: "lost", label: "Lost" },
-  { value: "disqualified", label: "Disqualified" },
+  { value: "new", label: "New" },
 ];
 
 const SCORE_OPTIONS = [
@@ -72,7 +65,7 @@ export default async function LeadsPage({
     query = query.eq("assigned_to", profile.id);
     countQuery = countQuery.eq("assigned_to", profile.id);
   }
-  if (status !== "all") {
+  if (profile.role === "admin" && status !== "all") {
     query = query.eq("status", status);
     countQuery = countQuery.eq("status", status);
   }
@@ -104,7 +97,9 @@ export default async function LeadsPage({
           selects={[
             { paramKey: "score", placeholder: "All scores", options: SCORE_OPTIONS },
             { paramKey: "tier", placeholder: "All integrations", options: TIER_OPTIONS },
-            { paramKey: "status", placeholder: "All statuses", options: STATUS_OPTIONS },
+            ...(profile.role === "admin"
+              ? [{ paramKey: "status", placeholder: "All", options: STATUS_OPTIONS }]
+              : []),
           ]}
         />
       </Suspense>

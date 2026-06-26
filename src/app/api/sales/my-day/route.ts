@@ -160,6 +160,7 @@ export async function GET(request: NextRequest) {
   if (profile.role === "admin") {
     const urgentCount = db.from("salon_leads")
       .select("id", { count: "exact", head: true })
+      .eq("status", "outreach_ready")
       .in("sales_stage", ["hot", "trial", "replied"])
       .not("assigned_to", "is", null)
       .not("id", "in", recentActionByAssignedRepSubquery(oneDayAgo));
@@ -167,6 +168,7 @@ export async function GET(request: NextRequest) {
     const urgentLeads = withLeadShape(
       db.from("salon_leads")
         .select(LEAD_SELECT)
+        .eq("status", "outreach_ready")
         .in("sales_stage", ["hot", "trial", "replied"])
         .not("assigned_to", "is", null)
         .not("id", "in", recentActionByAssignedRepSubquery(oneDayAgo))
@@ -175,17 +177,20 @@ export async function GET(request: NextRequest) {
 
     const assignedTodayCount = db.from("salon_leads")
       .select("id", { count: "exact", head: true })
+      .eq("status", "outreach_ready")
       .gte("assigned_at", todayStart);
 
     const assignedTodayLeads = withLeadShape(
       db.from("salon_leads")
         .select(LEAD_SELECT)
+        .eq("status", "outreach_ready")
         .gte("assigned_at", todayStart)
         .limit(5),
     );
 
     const readyToAssignCount = db.from("salon_leads")
       .select("id", { count: "exact", head: true })
+      .eq("status", "outreach_ready")
       .eq("sales_stage", "ready")
       .is("assigned_to", null)
       .filter("id", "in", preparedDemoSubquery());
@@ -193,6 +198,7 @@ export async function GET(request: NextRequest) {
     const readyToAssignLeads = withLeadShape(
       db.from("salon_leads")
         .select(LEAD_SELECT)
+        .eq("status", "outreach_ready")
         .eq("sales_stage", "ready")
         .is("assigned_to", null)
         .filter("id", "in", preparedDemoSubquery())
@@ -201,6 +207,8 @@ export async function GET(request: NextRequest) {
 
     const waitingDemoCount = db.from("salon_leads")
       .select("id", { count: "exact", head: true })
+      .eq("status", "outreach_ready")
+      .eq("has_social", true)
       .eq("sales_stage", "ready")
       .is("assigned_to", null)
       .not("id", "in", preparedDemoSubquery());
@@ -208,6 +216,8 @@ export async function GET(request: NextRequest) {
     const waitingDemoLeads = withLeadShape(
       db.from("salon_leads")
         .select(LEAD_SELECT)
+        .eq("status", "outreach_ready")
+        .eq("has_social", true)
         .eq("sales_stage", "ready")
         .is("assigned_to", null)
         .not("id", "in", preparedDemoSubquery())
@@ -231,6 +241,7 @@ export async function GET(request: NextRequest) {
 
   const doNowCount = db.from("salon_leads")
     .select("id", { count: "exact", head: true })
+    .eq("status", "outreach_ready")
     .eq("assigned_to", profile.id)
     .in("sales_stage", ["viewed", "hot", "replied"])
     .not("id", "in", recentActionByRepSubquery(profile.id, oneDayAgo));
@@ -238,6 +249,7 @@ export async function GET(request: NextRequest) {
   const doNowLeads = withLeadShape(
     db.from("salon_leads")
       .select(LEAD_SELECT)
+      .eq("status", "outreach_ready")
       .eq("assigned_to", profile.id)
       .in("sales_stage", ["viewed", "hot", "replied"])
       .not("id", "in", recentActionByRepSubquery(profile.id, oneDayAgo))
@@ -247,6 +259,7 @@ export async function GET(request: NextRequest) {
 
   const followUpCount = db.from("salon_leads")
     .select("id", { count: "exact", head: true })
+    .eq("status", "outreach_ready")
     .eq("assigned_to", profile.id)
     .eq("sales_stage", "sent")
     .not("id", "in", recentActionByRepSubquery(profile.id, twoDaysAgo));
@@ -254,6 +267,7 @@ export async function GET(request: NextRequest) {
   const followUpLeads = withLeadShape(
     db.from("salon_leads")
       .select(LEAD_SELECT)
+      .eq("status", "outreach_ready")
       .eq("assigned_to", profile.id)
       .eq("sales_stage", "sent")
       .not("id", "in", recentActionByRepSubquery(profile.id, twoDaysAgo))
@@ -263,6 +277,7 @@ export async function GET(request: NextRequest) {
 
   const newDmsCount = db.from("salon_leads")
     .select("id", { count: "exact", head: true })
+    .eq("status", "outreach_ready")
     .eq("assigned_to", profile.id)
     .in("sales_stage", ["sent", "ready"])
     .not("id", "in", recentActionByRepSubquery(profile.id));
@@ -270,6 +285,7 @@ export async function GET(request: NextRequest) {
   const newDmsLeads = withLeadShape(
     db.from("salon_leads")
       .select(LEAD_SELECT)
+      .eq("status", "outreach_ready")
       .eq("assigned_to", profile.id)
       .in("sales_stage", ["sent", "ready"])
       .not("id", "in", recentActionByRepSubquery(profile.id))

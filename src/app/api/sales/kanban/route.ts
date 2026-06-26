@@ -84,7 +84,7 @@ function toKanbanLead(row: any, isAdmin: boolean): KanbanLead {
 }
 
 function scopedQuery(query: any, profile: Profile, stage: LeadStage) {
-  let q = query.eq("sales_stage", stage);
+  let q = query.eq("sales_stage", stage).eq("status", "outreach_ready");
   if (profile.role !== "admin") q = q.eq("assigned_to", profile.id);
   return q;
 }
