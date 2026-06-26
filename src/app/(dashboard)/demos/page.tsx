@@ -83,7 +83,7 @@ export default async function DemosPage({
               {(demos ?? []).map((demo) => (
                 <tr key={demo.id} className="border-b border-border last:border-0 hover:bg-surface-muted/50">
                   <td className="px-4 py-3">
-                    <Link href={`/leads/${demo.lead_id}`} className="font-medium text-violet-700 hover:underline">
+                    <Link href={`/leads/${demo.lead_id}`} prefetch={false} className="font-medium text-violet-700 hover:underline">
                       {demo.salon_name}
                     </Link>
                   </td>

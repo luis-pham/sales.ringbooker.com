@@ -66,6 +66,7 @@ export function MobileNav({ role }: { role: UserRole }) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   "flex h-14 min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium",
                   active ? "text-violet-700 dark:text-violet-400" : "text-muted",
@@ -119,6 +120,7 @@ export function MobileNav({ role }: { role: UserRole }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex flex-col items-center gap-2 rounded-xl px-2 py-3 text-[11px] font-medium transition-colors",

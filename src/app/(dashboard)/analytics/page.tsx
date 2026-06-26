@@ -102,56 +102,62 @@ async function getOverviewData() {
   };
 
   // ── Trend (7 days, exact per-day counts) ────────────────────────────────────
-  const trend = await Promise.all(
-    Array.from({ length: 7 }, async (_, i) => {
-      const d = new Date(now);
-      d.setUTCHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - (6 - i));
-      const start = d.toISOString();
-      const end = new Date(d.getTime() + 86400_000).toISOString();
-      const [dmsSent, views, conversions] = await Promise.all([
-        countEvents(db, (q) => q.eq("metadata->>sales_stage", "sent").gte("created_at", start).lt("created_at", end)),
-        countSessions(db, (q) => q.gte("started_at", start).lt("started_at", end)),
-        countLeads(db, (q) => q.eq("sales_stage", "converted").gte("updated_at", start).lt("updated_at", end)),
-      ]);
-      return { date: start.slice(0, 10), label: d.toLocaleDateString("en-US", { weekday: "short" }), dmsSent, views, conversions };
-    }),
-  );
+  const sevenDaysAgoDate = new Date(now);
+  sevenDaysAgoDate.setUTCHours(0, 0, 0, 0);
+  sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 6);
+  const { data: trendRows } = await db.rpc("get_trend_7days", {
+    p_start: sevenDaysAgoDate.toISOString(),
+  });
+  const trend = (trendRows ?? []).map((row: any) => ({
+    date: row.day_date,
+    label: new Date(row.day_date).toLocaleDateString("en-US", { weekday: "short" }),
+    dmsSent: Number(row.dms_sent),
+    views: Number(row.views),
+    conversions: Number(row.conversions),
+  }));
 
   // ── Team (per-rep exact counts) ─────────────────────────────────────────────
-  const { data: members } = await db
-    .from("profiles")
-    .select("id, full_name, email")
-    .in("role", ["admin", "outreacher"])
-    .eq("is_active", true);
+  const [{ data: members }, { data: teamStats }] = await Promise.all([
+    db.from("profiles")
+      .select("id, full_name, email")
+      .in("role", ["admin", "outreacher"])
+      .eq("is_active", true),
+    db.rpc("get_team_stats", { p_week_ago: weekAgo }),
+  ]);
 
-  const membersList = await Promise.all(
-    (members ?? []).map(async (m) => {
-      const [assigned, active, converted, ghosted, dmsSent, views] = await Promise.all([
-        countLeads(db, (q) => q.eq("assigned_to", m.id)),
-        countLeads(db, (q) => q.eq("assigned_to", m.id).in("sales_stage", ACTIVE_STAGES)),
-        countLeads(db, (q) => q.eq("assigned_to", m.id).eq("sales_stage", "converted")),
-        countLeads(db, (q) => q.eq("assigned_to", m.id).eq("sales_stage", "ghosted")),
-        countEvents(db, (q) => q.eq("created_by", m.id).eq("metadata->>sales_stage", "sent").gte("created_at", weekAgo)),
-        db.from("demo_sessions")
-          .select("id, salon_leads!inner(assigned_to)", { count: "exact", head: true })
-          .eq("salon_leads.assigned_to", m.id)
-          .gte("started_at", weekAgo)
-          .then((r) => r.count ?? 0),
-      ]);
+  type TeamStatRow = {
+    member_id: string;
+    assigned: number;
+    active: number;
+    converted: number;
+    ghosted: number;
+    dms_sent: number;
+    views: number;
+  };
+
+  const statsMap = new Map<string, TeamStatRow>(
+    (teamStats ?? []).map((s: any) => [s.member_id, s]),
+  );
+
+  const membersList = (members ?? []).map((m) => {
+    const s = statsMap.get(m.id) ?? {
+      assigned: 0, active: 0, converted: 0,
+      ghosted: 0, dms_sent: 0, views: 0,
+    };
+    const assigned = Number(s.assigned);
+    const ghosted = Number(s.ghosted);
       return {
         id: m.id,
         name: m.full_name ?? m.email,
         email: m.email,
         assigned,
-        active,
-        dmsSentThisWeek: dmsSent,
-        viewsThisWeek: views,
-        converted,
+        active: Number(s.active),
+        dmsSentThisWeek: Number(s.dms_sent),
+        viewsThisWeek: Number(s.views),
+        converted: Number(s.converted),
         ghostedPct: assigned > 0 ? Math.round((ghosted / assigned) * 100) : 0,
       };
-    }),
-  );
+  });
 
   return {
     pipeline: { activeLeads, hotNow, dmsSentThisWeek, viewsThisWeek, viewRate, convertedThisMonth, trialConvertedRate, avgDemoPct, funnel, velocity, trend, alerts, inventory },

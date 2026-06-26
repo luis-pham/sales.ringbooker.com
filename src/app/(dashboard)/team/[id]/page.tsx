@@ -172,7 +172,7 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
                 {(leads ?? []).map((l) => (
                   <tr key={l.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5">
-                      <Link href={`/leads/${l.id}`} className="font-medium text-violet-700">{l.name}</Link>
+                      <Link href={`/leads/${l.id}`} prefetch={false} className="font-medium text-violet-700">{l.name}</Link>
                     </td>
                     <td className="px-4 py-2.5 text-muted">{[l.city, l.state].filter(Boolean).join(", ") || "—"}</td>
                     <td className="px-4 py-2.5"><StageBadge stage={toStage(l.sales_stage)} /></td>

@@ -83,7 +83,7 @@ export default async function SearchPage({
                   {(runs ?? []).map((run) => (
                     <tr key={run.id} className="border-b border-border last:border-0 hover:bg-surface-muted/50">
                       <td className="px-4 py-3">
-                        <Link href={`/search/${run.id}`} className="font-medium text-violet-700 hover:underline">
+                        <Link href={`/search/${run.id}`} prefetch={false} className="font-medium text-violet-700 hover:underline">
                           {run.city}, {run.state}
                         </Link>
                         {run.query_variation && run.query_variation !== run.query && (

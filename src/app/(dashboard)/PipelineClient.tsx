@@ -34,7 +34,7 @@ export function PipelineClient({ leads }: { leads: PipelineLead[] }) {
             </CardHeader>
             <CardContent className="space-y-2">
               {rows.slice(0, 10).map((lead) => (
-                <Link key={lead.id} href={`/leads/${lead.id}`} className="block rounded-md border border-border p-3 hover:bg-slate-50">
+                <Link key={lead.id} href={`/leads/${lead.id}`} prefetch={false} className="block rounded-md border border-border p-3 hover:bg-slate-50">
                   <div className="text-sm font-medium text-text">{lead.name}</div>
                   <div className="mt-1 text-xs text-muted">{[lead.city, lead.state].filter(Boolean).join(", ")}</div>
                   <div className="mt-2">

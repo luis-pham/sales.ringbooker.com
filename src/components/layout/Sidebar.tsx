@@ -75,6 +75,7 @@ export function Sidebar({
       <Link
         key={item.href}
         href={item.href}
+        prefetch={false}
         title={collapsed ? item.label : undefined}
         className={cn(linkClass(isActive(pathname, item.href)), indent && !collapsed && "pl-9")}
       >
