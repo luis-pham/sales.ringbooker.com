@@ -34,7 +34,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .from("demo_sessions")
     .select("id, started_at, hour_of_day, duration_seconds, pct_reached, is_complete")
     .eq("demo_id", demo.id)
-    .order("started_at", { ascending: false });
+    .order("started_at", { ascending: false })
+    .limit(50);
 
   const sessions: DemoSession[] = (rawSessions ?? []).map((s) => {
     const dt = new Date(s.started_at);

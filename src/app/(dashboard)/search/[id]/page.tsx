@@ -9,8 +9,8 @@ export default async function SearchRunPage({ params }: { params: Promise<{ id: 
   const adminClient = createAdminClient();
   const [{ data: run }, { data: leads }, { data: jobs }] = await Promise.all([
     adminClient.from("lead_search_runs").select("*").eq("id", id).single(),
-    adminClient.from("salon_leads").select("*").eq("search_run_id", id).order("created_at", { ascending: false }),
-    adminClient.from("jobs").select("*").contains("payload", { searchRunId: id }).order("created_at", { ascending: false }),
+    adminClient.from("salon_leads").select("id, name, phone, city, state, categories, website_url, facebook_url, instagram_url, sales_stage, status, rating, review_count, created_at").eq("search_run_id", id).order("created_at", { ascending: false }).limit(200),
+    adminClient.from("jobs").select("id, type, status, attempts, max_attempts, error, created_at, updated_at").contains("payload", { searchRunId: id }).order("created_at", { ascending: false }).limit(100),
   ]);
 
   return (
@@ -42,7 +42,7 @@ export default async function SearchRunPage({ params }: { params: Promise<{ id: 
           {(leads ?? []).map((lead) => (
             <Link key={lead.id} href={`/leads/${lead.id}`} className="block px-4 py-3 hover:bg-slate-50">
               <div className="font-medium text-text">{lead.name}</div>
-              <div className="text-sm text-muted">{lead.address ?? lead.phone ?? "No contact"}</div>
+              <div className="text-sm text-muted">{lead.phone ?? "No contact"}</div>
             </Link>
           ))}
           {(leads ?? []).length === 0 ? <div className="p-4 text-sm text-muted">No leads imported yet.</div> : null}

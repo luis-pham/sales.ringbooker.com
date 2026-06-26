@@ -30,8 +30,27 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const adminClient = createAdminClient();
   const { data, error } = await adminClient
     .from("salon_leads")
-    .select("*, lead_scores(*), website_snapshots(*), instagram_snapshots(*), ringbooker_demos(*), outreach_events(*), follow_ups(*)")
+    .select(`
+      id, name, phone, address, city, state, categories,
+      website_url, google_maps_url, rating, review_count,
+      facebook_url, instagram_url, sales_stage, assigned_to,
+      created_at, updated_at, enriched_at, scored_at,
+      has_social, has_phone_visible, closes_before_6pm, is_open_sunday,
+      hours_raw, lat, lng, status, metadata,
+      lead_scores(score, priority, tier, tier_platform, recommended_pitch, factors),
+      website_snapshots(status, has_online_booking, has_phone_visible, booking_urls, instagram_links, facebook_links, crawled_at, error),
+      instagram_snapshots(handle, followers, profile_url, bio, last_post_at, post_count_30d, active_last_30_days, booking_link_in_bio, detected_platform),
+      ringbooker_demos(id, demo_slug, view_count, last_viewed_at),
+      outreach_events(id, type, notes, metadata, created_at, created_by),
+      follow_ups(id, type, notes, scheduled_for, completed_at, created_at)
+    `)
     .eq("id", id)
+    .order("last_viewed_at", { referencedTable: "ringbooker_demos", ascending: false })
+    .limit(3, { referencedTable: "ringbooker_demos" })
+    .order("created_at", { referencedTable: "outreach_events", ascending: false })
+    .limit(20, { referencedTable: "outreach_events" })
+    .order("scheduled_for", { referencedTable: "follow_ups", ascending: true })
+    .limit(10, { referencedTable: "follow_ups" })
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });
   if (profile.role !== "admin" && data.assigned_to !== profile.id) {

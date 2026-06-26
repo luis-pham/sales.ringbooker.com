@@ -36,17 +36,19 @@ export default async function JobsPage({
       .maybeSingle<{ is_paused: boolean; paused_by: string | null; paused_at: string | null }>(),
   ]);
 
-  // Summary counts
-  const { data: countRows } = await adminClient
-    .from("jobs")
-    .select("status")
-    .in("status", ["pending", "processing", "failed", "dead"]);
+  const [pending, processing, failed, dead] = await Promise.all([
+    adminClient.from("jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    adminClient.from("jobs").select("id", { count: "exact", head: true }).eq("status", "processing"),
+    adminClient.from("jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    adminClient.from("jobs").select("id", { count: "exact", head: true }).eq("status", "dead"),
+  ]);
 
-  const summary = { pending: 0, processing: 0, failed: 0, dead: 0 };
-  for (const row of countRows ?? []) {
-    const s = row.status as keyof typeof summary;
-    if (s in summary) summary[s]++;
-  }
+  const summary = {
+    pending: pending.count ?? 0,
+    processing: processing.count ?? 0,
+    failed: failed.count ?? 0,
+    dead: dead.count ?? 0,
+  };
 
   return (
     <Suspense>

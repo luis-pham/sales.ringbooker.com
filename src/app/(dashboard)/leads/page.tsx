@@ -53,8 +53,8 @@ export default async function LeadsPage({
   // Use !inner join only when filtering by score/tier to avoid filtering out unscored leads
   const needsScoreJoin = score !== "all" || tier !== "all";
   const selectClause = needsScoreJoin
-    ? "*, lead_scores!inner(score, priority, tier, tier_platform)"
-    : "*, lead_scores(score, priority, tier, tier_platform)";
+    ? "id, name, phone, city, state, categories, website_url, facebook_url, instagram_url, sales_stage, assigned_to, created_at, updated_at, has_social, status, rating, review_count, lead_scores!inner(score, priority, tier, tier_platform)"
+    : "id, name, phone, city, state, categories, website_url, facebook_url, instagram_url, sales_stage, assigned_to, created_at, updated_at, has_social, status, rating, review_count, lead_scores(score, priority, tier, tier_platform)";
 
   const adminClient = createAdminClient();
 

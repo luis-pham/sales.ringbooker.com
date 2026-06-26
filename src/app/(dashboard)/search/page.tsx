@@ -32,7 +32,7 @@ export default async function SearchPage({
 
   let query = createAdminClient()
     .from("lead_search_runs")
-    .select("*")
+    .select("id, query, city, state, vertical, status, provider, created_at, updated_at, created_by, grid_total, grid_index")
     .order("created_at", { ascending: false })
     .range(offset, offset + perPage - 1);
 
@@ -46,7 +46,8 @@ export default async function SearchPage({
     countQuery = countQuery.gte("created_at", since);
   }
 
-  const [{ data: runs }, { count }] = await Promise.all([query, countQuery]);
+  const [{ data: runsData }, { count }] = await Promise.all([query, countQuery]);
+  const runs = (runsData ?? []) as any[];
   const total = count ?? 0;
 
   return (

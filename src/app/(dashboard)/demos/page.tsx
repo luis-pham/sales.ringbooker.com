@@ -32,7 +32,7 @@ export default async function DemosPage({
 
   let query = createAdminClient()
     .from("ringbooker_demos")
-    .select("*, salon_leads(id, name, status)")
+    .select("id, demo_slug, view_count, last_viewed_at, created_at, lead_id, salon_leads(id, name, status)")
     .order("created_at", { ascending: false })
     .range(offset, offset + perPage - 1);
 
@@ -50,7 +50,8 @@ export default async function DemosPage({
     countQuery = countQuery.gte("created_at", since);
   }
 
-  const [{ data: demos }, { count }] = await Promise.all([query, countQuery]);
+  const [{ data: demosData }, { count }] = await Promise.all([query, countQuery]);
+  const demos = (demosData ?? []) as any[];
   const total = count ?? 0;
 
   return (

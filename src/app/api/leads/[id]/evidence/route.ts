@@ -38,6 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .select("id, event_id, type, storage_path, file_name, uploaded_by, notes, created_at")
     .eq("lead_id", id)
     .order("created_at", { ascending: false })
+    .limit(50)
     .returns<EvidenceRow[]>();
 
   const evidence = await Promise.all(

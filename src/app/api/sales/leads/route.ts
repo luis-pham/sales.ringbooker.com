@@ -30,7 +30,7 @@ const SELECT_FIELDS = `
   sales_stage,
   created_at,
   updated_at,
-  instagram_snapshots ( handle, followers, profile_url ),
+  instagram_snapshots ( handle, followers ),
   ringbooker_demos ( id, demo_slug, view_count, last_viewed_at ),
   outreach_events ( id, type, notes, metadata, created_at )
 `;
@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
     : adminClient.from("salon_leads").select(SELECT_FIELDS);
 
   query = query.order("updated_at", { ascending: false });
+  query = query.order("last_viewed_at", { referencedTable: "ringbooker_demos", ascending: false }).limit(1, { referencedTable: "ringbooker_demos" });
+  query = query.order("created_at", { referencedTable: "outreach_events", ascending: false }).limit(5, { referencedTable: "outreach_events" });
 
   if (profile.role !== "admin") query = query.eq("assigned_to", profile.id);
   if (stage && stage !== "all") query = query.eq("sales_stage", stage);
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * perPage;
     query = query.range(offset, offset + perPage - 1);
   } else {
-    query = query.limit(200);
+    query = query.limit(50);
   }
 
   const { data, error, count } = await query;

@@ -19,6 +19,8 @@ export function useLeads() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: LEADS_KEY,
     queryFn: fetchLeads,
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   const leads = data ?? [];

@@ -18,8 +18,10 @@ export async function GET(request: NextRequest) {
   const adminClient = createAdminClient();
   let query = adminClient
     .from("salon_leads")
-    .select("*, lead_scores(*), ringbooker_demos(*)", { count: "exact" })
+    .select("id, name, phone, city, state, categories, website_url, facebook_url, instagram_url, sales_stage, assigned_to, created_at, updated_at, has_social, status, lead_scores(score, priority, tier, tier_platform), ringbooker_demos(id, demo_slug, view_count, last_viewed_at)", { count: "exact" })
     .order("created_at", { ascending: false })
+    .order("last_viewed_at", { referencedTable: "ringbooker_demos", ascending: false })
+    .limit(1, { referencedTable: "ringbooker_demos" })
     .limit(limit);
 
   if (profile.role !== "admin") query = query.eq("assigned_to", profile.id);

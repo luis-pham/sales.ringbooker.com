@@ -15,12 +15,12 @@ export default async function LogsPage({
 
   const { data: rows } = await adminClient
     .from("api_usage_logs")
-    .select("*")
+    .select("id, endpoint, provider, status, units, estimated_cost_usd, created_at, lead_id, job_id")
     .gte("created_at", since.toISOString())
     .order("created_at", { ascending: false })
     .limit(500);
 
-  const logs = rows ?? [];
+  const logs = (rows ?? []) as any[];
 
   // Aggregate by provider
   const byProvider: Record<string, { calls: number; cost: number }> = {};
