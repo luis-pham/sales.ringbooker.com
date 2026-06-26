@@ -31,7 +31,7 @@ export function TimelineBlock({
   return (
     <div className="space-y-4">
       {sorted.length === 0 ? (
-        <p className="text-sm text-muted">No activity yet.</p>
+        <p className="text-sm text-muted">Chưa có hoạt động.</p>
       ) : (
         <ol className="space-y-3">
           {sorted.map((event) => {
@@ -57,13 +57,13 @@ export function TimelineBlock({
       {onAddNote && (
         <div className="space-y-2 border-t border-border pt-4">
           <Textarea
-            placeholder="Add a note…"
+            placeholder="Thêm ghi chú…"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
           />
           <Button size="sm" onClick={handleSave} disabled={!note.trim() || saving}>
-            {saving ? "Saving…" : "Save note"}
+            {saving ? "Đang lưu…" : "Lưu ghi chú"}
           </Button>
         </div>
       )}

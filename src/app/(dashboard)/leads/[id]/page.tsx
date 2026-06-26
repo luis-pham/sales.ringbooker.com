@@ -52,18 +52,18 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     console.error("[lead-detail] Supabase error:", error.message, "id:", id);
     return (
       <div className="space-y-2 p-4">
-        <div className="text-sm font-medium text-red-600">Failed to load lead</div>
+        <div className="text-sm font-medium text-red-600">Không tải được lead</div>
         <div className="font-mono text-xs text-muted">{error.message}</div>
       </div>
     );
   }
 
   if (!lead) {
-    return <div className="text-sm text-muted">Lead not found (id: {id}).</div>;
+    return <div className="text-sm text-muted">Không tìm thấy lead (id: {id}).</div>;
   }
 
   if (profile.role !== "admin" && lead.assigned_to !== profile.id) {
-    return <div className="text-sm text-muted">You do not have access to this lead.</div>;
+    return <div className="text-sm text-muted">Bạn không có quyền truy cập lead này.</div>;
   }
 
   const score = lead.lead_scores?.[0] ?? null;
@@ -77,7 +77,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <Link href="/leads" className="text-xs text-muted hover:text-text">
-            Back to leads
+            Quay lại danh sách
           </Link>
           <h1 className="mt-1 overflow-wrap-anywhere text-xl font-semibold text-text">{lead.name}</h1>
           <p className="text-sm text-muted">{lead.address ?? [lead.city, lead.state].filter(Boolean).join(", ")}</p>
@@ -89,10 +89,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Overview</CardTitle>
+              <CardTitle>Tổng quan</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <Info label="Phone" value={lead.phone ? (
+              <Info label="Điện thoại" value={lead.phone ? (
                 <a href={`tel:${lead.phone}`} className="text-violet-700 hover:underline dark:text-violet-400">{lead.phone}</a>
               ) : null} />
               <Info label="Website" value={lead.website_url ? (
@@ -107,23 +107,23 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <Info label="TikTok" value={lead.tiktok_url ? (
                 <a href={lead.tiktok_url} target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline dark:text-violet-400">{lead.tiktok_url}</a>
               ) : null} />
-              <Info label="Google rating" value={`${lead.rating ?? "-"} · ${lead.review_count ?? 0} reviews`} />
-              <Info label="Sunday" value={lead.is_open_sunday == null ? "Unknown" : lead.is_open_sunday ? "Open" : "Closed"} />
-              <Info label="Closes before 6PM" value={lead.closes_before_6pm == null ? "Unknown" : lead.closes_before_6pm ? "Yes" : "No"} />
+              <Info label="Đánh giá Google" value={`${lead.rating ?? "-"} · ${lead.review_count ?? 0} đánh giá`} />
+              <Info label="Chủ nhật" value={lead.is_open_sunday == null ? "Chưa rõ" : lead.is_open_sunday ? "Đang mở cửa" : "Đóng cửa"} />
+              <Info label="Đóng trước 6PM" value={lead.closes_before_6pm == null ? "Chưa rõ" : lead.closes_before_6pm ? "Có" : "Không"} />
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Enrichment</CardTitle>
+              <CardTitle>Làm giàu dữ liệu</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <Info label="Website crawl" value={website?.status ?? "Not crawled"} />
-              <Info label="Booking URLs" value={(website?.booking_urls ?? []).join(", ") || "None"} />
-              <Info label="Platform hits" value={(website?.platform_hits ?? []).map((hit) => hit.platform).join(", ") || "None"} />
-              <Info label="Instagram status" value={instagram?.status ?? "Not fetched"} />
-              <Info label="IG followers" value={instagram?.followers?.toLocaleString() ?? "Unknown"} />
-              <Info label="IG active last 30d" value={instagram?.active_last_30_days ? "Yes" : "No/unknown"} />
+              <Info label="Crawl website" value={website?.status ?? "Chưa crawl"} />
+              <Info label="URL đặt lịch" value={(website?.booking_urls ?? []).join(", ") || "Không có"} />
+              <Info label="Nền tảng phát hiện" value={(website?.platform_hits ?? []).map((hit) => hit.platform).join(", ") || "Không có"} />
+              <Info label="Trạng thái Instagram" value={instagram?.status ?? "Chưa lấy dữ liệu"} />
+              <Info label="Người theo dõi IG" value={instagram?.followers?.toLocaleString() ?? "Chưa rõ"} />
+              <Info label="IG hoạt động 30 ngày gần nhất" value={instagram?.active_last_30_days ? "Có" : "Không/chưa rõ"} />
             </CardContent>
           </Card>
 
@@ -134,7 +134,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         <aside className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Score</CardTitle>
+              <CardTitle>Điểm</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
@@ -142,7 +142,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 <TierBadge tier={score?.tier} platform={score?.tier_platform} />
                 <StatusBadge status={lead.status} />
               </div>
-              {score ? <ScoreBreakdown factors={score.factors} /> : <p className="text-sm text-muted">Not scored yet.</p>}
+              {score ? <ScoreBreakdown factors={score.factors} /> : <p className="text-sm text-muted">Chưa chấm điểm.</p>}
               {score?.recommended_pitch ? <p className="text-sm text-muted">{score.recommended_pitch}</p> : null}
             </CardContent>
           </Card>

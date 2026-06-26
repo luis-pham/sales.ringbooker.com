@@ -58,7 +58,7 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
     setQaSaving(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      toast.error(j.error ?? "Could not record demo check");
+      toast.error(j.error ?? "Không lưu được trạng thái kiểm tra demo");
       return;
     }
     setQaChecked(true);
@@ -77,7 +77,7 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
     });
     setSending(false);
     if (!res.ok) { toast.error(res.error); return; }
-    toast.success("DM logged with proof");
+    toast.success("Đã ghi nhận DM kèm bằng chứng");
     onDone();
   }
 
@@ -86,15 +86,15 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
       {/* QA gate — verify demo quality before sending */}
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
         <div className="mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-400">
-          Demo quality check (required) - you will send this link in the reveal after they reply
+          Kiểm tra chất lượng demo (bắt buộc) - bạn sẽ gửi link này trong tin tiết lộ sau khi họ phản hồi
         </div>
         {demoUrl ? (
           <a href={demoUrl} target="_blank" rel="noopener noreferrer"
              className="block truncate text-xs text-violet-700 hover:underline dark:text-violet-400">
-            Open demo: {demoUrl}
+            Mở demo: {demoUrl}
           </a>
         ) : (
-          <p className="text-xs text-muted">No demo for this lead yet.</p>
+          <p className="text-xs text-muted">Lead này chưa có demo.</p>
         )}
         <label className="mt-2 flex items-center gap-2 text-xs text-text">
           <input
@@ -104,42 +104,42 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
             onChange={(e) => handleQaToggle(e.target.checked)}
             className="h-3.5 w-3.5"
           />
-          {qaSaving ? "Saving..." : "I reviewed the demo and it meets quality standards"}
+          {qaSaving ? "Đang lưu…" : "Tôi đã kiểm tra và demo đạt chuẩn"}
         </label>
       </div>
 
-      <div className="text-xs font-medium text-muted">Opener — curiosity, no link (share the demo after they reply)</div>
+      <div className="text-xs font-medium text-muted">Tin mở đầu — gợi tò mò, không kèm link (chia sẻ demo sau khi họ phản hồi)</div>
       <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={5} className="text-sm" />
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={handleCopy} className="flex-1">
           <Copy className="mr-1.5 h-3.5 w-3.5" />
-          {copied ? "Copied!" : "1. Copy message"}
+          {copied ? "Đã sao chép!" : "1. Sao chép tin nhắn"}
         </Button>
         {platformUrl ? (
           <a href={platformUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
             <Button variant="outline" size="sm" className="w-full">
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              2. Open {lead.platform ?? "DM"} →
+              2. Mở {lead.platform ?? "DM"} →
             </Button>
           </a>
         ) : (
-          <Button variant="outline" size="sm" disabled className="flex-1">No platform link</Button>
+          <Button variant="outline" size="sm" disabled className="flex-1">Không có link nền tảng</Button>
         )}
       </div>
 
       {/* Step 3 — required screenshot */}
       <div>
-        <div className="mb-1.5 text-xs font-medium text-muted">3. Screenshot of the DM (required)</div>
-        <EvidencePicker file={file} onChange={setFile} label="Upload DM screenshot" />
+        <div className="mb-1.5 text-xs font-medium text-muted">3. Ảnh chụp DM (bắt buộc)</div>
+        <EvidencePicker file={file} onChange={setFile} label="Tải ảnh chụp DM" />
       </div>
 
       <Button size="sm" className="w-full" onClick={handleConfirm} disabled={sending || !file || !qaChecked}>
         <Send className="mr-1.5 h-3.5 w-3.5" />
-        {sending ? "Saving…" : "4. ✓ Confirm — I sent the DM"}
+        {sending ? "Đang lưu…" : "4. ✓ Xác nhận — tôi đã gửi DM"}
       </Button>
       <p className="text-center text-xs text-muted">
-        Sends the opener (no link). Requires demo check + screenshot. Moves the lead to <strong>Sent</strong>; share the demo in the reveal after they reply.
+        Gửi tin mở đầu (không kèm link). Cần kiểm tra demo + ảnh chụp. Chuyển lead sang <strong>Đã gửi</strong>; chia sẻ demo trong tin tiết lộ sau khi họ phản hồi.
       </p>
     </div>
   );
@@ -164,20 +164,20 @@ function ReplyEvidenceForm({ lead, onDone, onCancel }: { lead: PipelineLead; onD
     });
     setSaving(false);
     if (!res.ok) { toast.error(res.error); return; }
-    toast.success("Reply logged with proof");
+    toast.success("Đã ghi nhận phản hồi kèm bằng chứng");
     onDone();
   }
 
   return (
     <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-950/20">
-      <div className="text-xs font-medium text-violet-700 dark:text-violet-400">Log reply — screenshot required</div>
-      <EvidencePicker file={file} onChange={setFile} label="Upload reply screenshot" />
-      <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Note (optional)" className="text-sm" />
+      <div className="text-xs font-medium text-violet-700 dark:text-violet-400">Ghi nhận phản hồi — cần ảnh chụp</div>
+      <EvidencePicker file={file} onChange={setFile} label="Tải ảnh chụp phản hồi" />
+      <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Ghi chú (tùy chọn)" className="text-sm" />
       <div className="flex items-center gap-2">
         <Button size="sm" className="flex-1" onClick={handleSubmit} disabled={saving || !file}>
-          {saving ? "Saving…" : "Confirm reply"}
+          {saving ? "Đang lưu…" : "Xác nhận phản hồi"}
         </Button>
-        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>Hủy</Button>
       </div>
     </div>
   );
@@ -243,12 +243,12 @@ export function LeadPanel({
             </div>
             {lead.handle && (
               <div className="mt-0.5 text-xs text-muted">
-                {lead.platform} · {lead.handle}{lead.followers ? ` · ${lead.followers} followers` : ""}
+                {lead.platform} · {lead.handle}{lead.followers ? ` · ${lead.followers} người theo dõi` : ""}
               </div>
             )}
           </div>
           <div className="ml-4 flex shrink-0 items-center gap-1">
-            <a href={`/leads/${lead.id}`} target="_blank" rel="noopener noreferrer" title="Open full page"
+            <a href={`/leads/${lead.id}`} target="_blank" rel="noopener noreferrer" title="Mở trang đầy đủ"
               className="rounded-md p-1.5 text-muted hover:bg-surface-muted hover:text-text">
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -262,38 +262,38 @@ export function LeadPanel({
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {isReady && (
             <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Send DM</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Gửi DM</h3>
               <SendDMBlock lead={enrichedLead} onDone={() => handleStepDone("sent")} />
             </section>
           )}
 
           {replyMode && (
             <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Log reply</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Ghi nhận phản hồi</h3>
               <ReplyEvidenceForm lead={lead} onDone={() => handleStepDone("replied")} onCancel={() => setReplyMode(false)} />
             </section>
           )}
 
           <section>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Demo Tracking</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Theo dõi demo</h3>
             <DemoTrackingBlock tracking={tracking} isLoading={demoLoading} />
           </section>
 
           {!isReady && (
             <section>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Next Action</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Hành động tiếp theo</h3>
               <NextActionBlock action={action} onMarkDone={handleMarkDone} />
             </section>
           )}
 
           {/* Evidence */}
           <section>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Evidence</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Bằng chứng</h3>
             <EvidenceList leadId={lead.id} reloadKey={evidenceReload} />
           </section>
 
           <section>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Timeline</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Dòng thời gian</h3>
             <TimelineBlock events={lead.timeline} onAddNote={(text) => onAddNote(lead.id, "note", text)} />
           </section>
         </div>
@@ -310,14 +310,14 @@ export function LeadPanel({
               {canReply && !replyMode && (
                 <Button variant="outline" size="sm" onClick={() => setReplyMode(true)}>
                   <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
-                  Log reply
+                  Ghi nhận phản hồi
                 </Button>
               )}
               {platformUrl && (
                 <a href={platformUrl} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm">
                     <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                    Open {lead.platform} DM
+                    Mở {lead.platform} DM
                   </Button>
                 </a>
               )}
@@ -326,7 +326,7 @@ export function LeadPanel({
           {!HIDE_GHOSTED_FOR.includes(lead.stage) && (
             <Button variant="ghost" size="sm" className="w-full text-muted" onClick={() => onUpdateStage(lead.id, "ghosted")}>
               <Ghost className="mr-1.5 h-3.5 w-3.5" />
-              Mark as ghosted
+              Đánh dấu mất liên lạc
             </Button>
           )}
         </div>

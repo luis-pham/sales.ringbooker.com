@@ -8,17 +8,17 @@ export type StageMeta = {
 };
 
 export const STAGE_META: Record<LeadStage, StageMeta> = {
-  ready:      { label: "Ready",      badgeVariant: "slate",   dotColor: "bg-slate-400",   order: 0 },
-  sent:       { label: "Sent",       badgeVariant: "blue",    dotColor: "bg-blue-500",    order: 1 },
-  viewed:     { label: "Viewed",     badgeVariant: "cyan",    dotColor: "bg-cyan-500",    order: 2 },
-  hot:        { label: "Hot",        badgeVariant: "amber",   dotColor: "bg-amber-500",   order: 3 },
-  replied:    { label: "Replied",    badgeVariant: "violet",  dotColor: "bg-violet-500",  order: 4 },
-  signedup:   { label: "Signed up",  badgeVariant: "indigo",  dotColor: "bg-indigo-500",  order: 5 },
-  onboarding: { label: "Onboarding", badgeVariant: "teal",    dotColor: "bg-teal-500",    order: 6 },
-  trial:      { label: "Trial",      badgeVariant: "emerald", dotColor: "bg-emerald-400", order: 7 },
-  converted:  { label: "Converted",  badgeVariant: "emerald", dotColor: "bg-emerald-600", order: 8 },
-  ghosted:    { label: "Ghosted",    badgeVariant: "red",     dotColor: "bg-red-400",     order: 9 },
-  churned:    { label: "Churned",    badgeVariant: "red",     dotColor: "bg-red-600",     order: 10 },
+  ready:      { label: "Sẵn sàng",        badgeVariant: "slate",   dotColor: "bg-slate-400",   order: 0 },
+  sent:       { label: "Đã gửi",          badgeVariant: "blue",    dotColor: "bg-blue-500",    order: 1 },
+  viewed:     { label: "Đã xem",          badgeVariant: "cyan",    dotColor: "bg-cyan-500",    order: 2 },
+  hot:        { label: "Quan tâm cao",    badgeVariant: "amber",   dotColor: "bg-amber-500",   order: 3 },
+  replied:    { label: "Đã phản hồi",     badgeVariant: "violet",  dotColor: "bg-violet-500",  order: 4 },
+  signedup:   { label: "Đã đăng ký",      badgeVariant: "indigo",  dotColor: "bg-indigo-500",  order: 5 },
+  onboarding: { label: "Đang onboarding", badgeVariant: "teal",    dotColor: "bg-teal-500",    order: 6 },
+  trial:      { label: "Dùng thử",        badgeVariant: "emerald", dotColor: "bg-emerald-400", order: 7 },
+  converted:  { label: "Đã chuyển đổi",   badgeVariant: "emerald", dotColor: "bg-emerald-600", order: 8 },
+  ghosted:    { label: "Mất liên lạc",    badgeVariant: "red",     dotColor: "bg-red-400",     order: 9 },
+  churned:    { label: "Rời bỏ",          badgeVariant: "red",     dotColor: "bg-red-600",     order: 10 },
 };
 
 export const STAGE_ORDER: LeadStage[] = [

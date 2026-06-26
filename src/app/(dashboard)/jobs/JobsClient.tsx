@@ -24,6 +24,28 @@ const TYPE_OPTIONS = [
 ];
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Đang chờ",
+  processing: "Đang xử lý",
+  completed: "Hoàn tất",
+  failed: "Thất bại",
+  dead: "Không xử lý được",
+  cancelled: "Đã hủy",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  search_run: "Tìm kiếm",
+  enrich_lead: "Làm giàu dữ liệu Lead",
+  enrich_instagram: "Làm giàu dữ liệu Instagram",
+  instagram_batch: "Batch Instagram",
+  instagram_batch_queue: "Hàng đợi batch Instagram",
+  score_lead: "Chấm điểm Lead",
+  score_batch: "Chấm điểm hàng loạt",
+  auto_create_demo: "Tự động tạo demo",
+  auto_search_queue: "Hàng đợi tìm kiếm tự động",
+  cleanup: "Dọn dẹp",
+};
+
 type JobRow = {
   id: string; type: string; status: string; attempts: number;
   max_attempts: number; error: string | null; next_run_at: string;
@@ -75,12 +97,12 @@ export function JobsClient({
       body: JSON.stringify({ action }),
     });
     setToggling(false);
-    if (!res.ok) { toast.error("Failed to update worker state"); return; }
+    if (!res.ok) { toast.error("Cập nhật trạng thái tiến trình thất bại"); return; }
     const json = await res.json() as { data: { is_paused: boolean; paused_by: string | null; paused_at: string | null } };
     setPaused(json.data.is_paused);
     setPausedBy(json.data.paused_by);
     setPausedAt(json.data.paused_at);
-    toast.success(json.data.is_paused ? "Worker paused" : "Worker resumed");
+    toast.success(json.data.is_paused ? "Tiến trình đang tạm dừng" : "Tiến trình đã tiếp tục");
   }
 
   async function cancelJob(id: string) {
@@ -89,18 +111,18 @@ export function JobsClient({
     setCancellingId(null);
     if (!res.ok) {
       const json = await res.json() as { error: string };
-      toast.error(json.error ?? "Cannot cancel job");
+      toast.error(json.error ?? "Không thể hủy tiến trình");
       return;
     }
     setCancelledIds((prev) => new Set(prev).add(id));
-    toast.success("Job cancelled");
+    toast.success("Đã hủy tiến trình");
   }
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-text">Jobs</h1>
-        <p className="text-sm text-muted">Monitor and control the job worker queue.</p>
+        <h1 className="text-xl font-semibold text-text">Tiến trình</h1>
+        <p className="text-sm text-muted">Theo dõi và điều khiển hàng đợi tiến trình.</p>
       </div>
 
       {/* Worker status banner */}
@@ -113,11 +135,11 @@ export function JobsClient({
           <div className={`h-2.5 w-2.5 rounded-full ${paused ? "bg-warning" : "bg-success animate-pulse"}`} />
           <div>
             <span className="text-sm font-medium text-text">
-              Worker {paused ? "paused" : "running"}
+              Tiến trình {paused ? "đang tạm dừng" : "đang chạy"}
             </span>
             {paused && pausedByState && (
               <span className="ml-2 text-xs text-muted">
-                by {pausedByState}
+                bởi {pausedByState}
                 {pausedAtState ? ` · ${new Date(pausedAtState).toLocaleString()}` : ""}
               </span>
             )}
@@ -130,8 +152,8 @@ export function JobsClient({
           className="gap-2"
         >
           {paused
-            ? <><CirclePlay className="h-4 w-4 text-success" /> Resume</>
-            : <><CirclePause className="h-4 w-4 text-warning" /> Pause</>
+            ? <><CirclePlay className="h-4 w-4 text-success" /> Tiếp tục</>
+            : <><CirclePause className="h-4 w-4 text-warning" /> Tạm dừng</>
           }
         </Button>
       </div>
@@ -142,7 +164,7 @@ export function JobsClient({
           <button key={s} onClick={() => setParam("status", s)} className="text-left">
             <Card className={statusFilter === s ? "ring-2 ring-accent" : ""}>
               <CardContent className="p-4">
-                <div className="text-xs text-muted capitalize">{s}</div>
+                <div className="text-xs text-muted">{STATUS_LABELS[s]}</div>
                 <div className="mt-1 text-2xl font-semibold text-text">{summary[s]}</div>
               </CardContent>
             </Card>
@@ -158,7 +180,7 @@ export function JobsClient({
           className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
         >
           {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s === "all" ? "All statuses" : s}</option>
+            <option key={s} value={s}>{s === "all" ? "Tất cả trạng thái" : STATUS_LABELS[s] ?? s}</option>
           ))}
         </select>
         <select
@@ -167,7 +189,7 @@ export function JobsClient({
           className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
         >
           {TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>{t === "all" ? "All types" : t}</option>
+            <option key={t} value={t}>{t === "all" ? "Tất cả loại" : TYPE_LABELS[t] ?? t}</option>
           ))}
         </select>
         {(statusFilter !== "all" || typeFilter !== "all") && (
@@ -175,7 +197,7 @@ export function JobsClient({
             onClick={() => { setParam("status", "all"); setParam("type", "all"); }}
             className="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted hover:text-text"
           >
-            <X className="h-3 w-3" /> Clear
+            <X className="h-3 w-3" /> Xóa lọc
           </button>
         )}
       </div>
@@ -186,20 +208,20 @@ export function JobsClient({
           <table className="w-full min-w-[800px] text-sm">
             <thead className="border-b border-border text-left text-xs text-muted">
               <tr>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Attempts</th>
-                <th className="px-4 py-3">Worker</th>
-                <th className="px-4 py-3">Error</th>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">Loại</th>
+                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3">Số lần thử</th>
+                <th className="px-4 py-3">Tiến trình</th>
+                <th className="px-4 py-3">Lỗi</th>
+                <th className="px-4 py-3">Ngày tạo</th>
+                <th className="px-4 py-3 text-right">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {jobs.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted">
-                    No jobs found.
+                    Không tìm thấy tiến trình.
                   </td>
                 </tr>
               )}
@@ -209,10 +231,10 @@ export function JobsClient({
                 const canCancel = job.status === "pending" && !cancelledIds.has(job.id);
                 return (
                   <tr key={job.id} className="border-b border-border last:border-0 hover:bg-surface-muted/40">
-                    <td className="px-4 py-3 font-mono text-xs">{job.type}</td>
+                    <td className="px-4 py-3 text-xs">{TYPE_LABELS[job.type] ?? job.type}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[effectiveStatus] ?? "bg-surface-muted text-muted"}`}>
-                        {effectiveStatus}
+                        {STATUS_LABELS[effectiveStatus] ?? effectiveStatus}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted">
@@ -239,7 +261,7 @@ export function JobsClient({
                           className="flex items-center gap-1 ml-auto rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
                         >
                           <X className="h-3 w-3" />
-                          {cancellingId === job.id ? "…" : "Cancel"}
+                          {cancellingId === job.id ? "…" : "Hủy"}
                         </button>
                       )}
                     </td>
@@ -253,7 +275,7 @@ export function JobsClient({
         {/* Pagination */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted">
           <div className="flex items-center gap-2">
-            <span>Show</span>
+            <span>Hiển thị</span>
             <select
               value={perPage}
               onChange={(e) => setParam("per_page", e.target.value)}
@@ -261,7 +283,7 @@ export function JobsClient({
             >
               {PER_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
-            <span>/ {total.toLocaleString()} jobs</span>
+            <span>/ {total.toLocaleString()} tiến trình</span>
           </div>
           <div className="flex items-center gap-1">
             <button

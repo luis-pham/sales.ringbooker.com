@@ -25,7 +25,7 @@ function SummaryStrip({ stats }: { stats: SalesStats | null }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3">
       <span className="text-xs font-semibold uppercase tracking-wide text-muted">Pipeline</span>
-      <span className="text-sm font-semibold text-text">{stats.total} total</span>
+      <span className="text-sm font-semibold text-text">{stats.total} tổng</span>
       <span className="text-border">·</span>
       {STAGE_ORDER.map((stage) => {
         const n = stats.byStage[stage] ?? 0;
@@ -113,14 +113,14 @@ export function SalesClient({ role }: { role: UserRole }) {
 
   const tabs: Array<{ id: Tab; label: string; icon: ElementType }> = isAdmin
     ? [
-        { id: "my-day", label: "My Day", icon: Inbox },
         { id: "pipeline", label: "Pipeline", icon: BarChart3 },
-        { id: "all-leads", label: "All Leads", icon: List },
+        { id: "my-day", label: "Việc hôm nay", icon: Inbox },
+        { id: "all-leads", label: "Tất cả Lead", icon: List },
       ]
     : [
-        { id: "my-day", label: "My Day", icon: Inbox },
+        { id: "my-day", label: "Việc hôm nay", icon: Inbox },
         { id: "pipeline", label: "Pipeline", icon: BarChart3 },
-        { id: "all-leads", label: "All Leads", icon: List },
+        { id: "all-leads", label: "Tất cả Lead", icon: List },
       ];
 
   return (
@@ -168,13 +168,13 @@ export function SalesClient({ role }: { role: UserRole }) {
         <div className="space-y-3">
           {isAdmin ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Assignee</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Người phụ trách</span>
               <select
                 value={assignee}
                 onChange={(e) => setAssignee(e.target.value)}
                 className="h-9 rounded-md border border-border bg-surface px-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-violet-300 dark:focus:ring-violet-700"
               >
-                <option value="all">All outreachers</option>
+                <option value="all">Tất cả Outreacher</option>
                 {team.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.full_name || member.email}

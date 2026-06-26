@@ -6,7 +6,7 @@ import { ImagePlus, X } from "lucide-react";
 export function EvidencePicker({
   file,
   onChange,
-  label = "Upload screenshot",
+  label = "Tải ảnh chụp",
 }: {
   file: File | null;
   onChange: (f: File | null) => void;
@@ -24,7 +24,7 @@ export function EvidencePicker({
   if (preview) {
     return (
       <div className="relative overflow-hidden rounded-md border border-border">
-        <img src={preview} alt="evidence" className="max-h-48 w-full object-contain bg-surface-muted" />
+        <img src={preview} alt="bằng chứng" className="max-h-48 w-full object-contain bg-surface-muted" />
         <button
           onClick={() => onChange(null)}
           className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"

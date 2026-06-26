@@ -7,11 +7,11 @@ import { requireAuth } from "@/lib/auth/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const DEMO_STATUSES = [
-  { value: "prepared", label: "Prepared" },
-  { value: "shared", label: "Shared" },
-  { value: "viewed", label: "Viewed" },
-  { value: "completed", label: "Completed" },
-  { value: "expired", label: "Expired" },
+  { value: "prepared", label: "Đã chuẩn bị" },
+  { value: "shared", label: "Đã chia sẻ" },
+  { value: "viewed", label: "Đã xem" },
+  { value: "completed", label: "Hoàn tất" },
+  { value: "expired", label: "Hết hạn" },
 ];
 
 export default async function DemosPage({
@@ -57,13 +57,13 @@ export default async function DemosPage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-text">Demos</h1>
-        <p className="text-sm text-muted">Prepared RingBooker demo URLs for salon outreach.</p>
+        <h1 className="text-xl font-semibold text-text">Demo</h1>
+        <p className="text-sm text-muted">URL demo RingBooker đã chuẩn bị cho outreach.</p>
       </div>
 
       <Suspense>
         <FilterBar
-            selects={[{ paramKey: "status", placeholder: "All statuses", options: DEMO_STATUSES }]}
+            selects={[{ paramKey: "status", placeholder: "Tất cả trạng thái", options: DEMO_STATUSES }]}
           />
       </Suspense>
 
@@ -73,11 +73,11 @@ export default async function DemosPage({
             <thead className="border-b border-border text-left text-xs text-muted">
               <tr>
                 <th className="px-4 py-3">Salon</th>
-                <th className="px-4 py-3">Lead status</th>
-                <th className="px-4 py-3">Demo status</th>
-                <th className="px-4 py-3">Views</th>
+                <th className="px-4 py-3">Trạng thái lead</th>
+                <th className="px-4 py-3">Trạng thái demo</th>
+                <th className="px-4 py-3">Lượt xem</th>
                 <th className="px-4 py-3">Demo URL</th>
-                <th className="px-4 py-3">Created</th>
+                <th className="px-4 py-3">Ngày tạo</th>
               </tr>
             </thead>
             <tbody>
@@ -105,7 +105,7 @@ export default async function DemosPage({
                         rel="noopener noreferrer"
                         className="font-mono text-xs text-violet-700 hover:underline"
                       >
-                        Open ↗
+                        Mở ↗
                       </a>
                     ) : "—"}
                   </td>
@@ -117,7 +117,7 @@ export default async function DemosPage({
               {(demos ?? []).length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted">
-                    No demos found.
+                    Không tìm thấy demo.
                   </td>
                 </tr>
               )}
@@ -140,9 +140,16 @@ function DemoStatusBadge({ status }: { status: string }) {
     completed: "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     expired: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
   };
+  const labels: Record<string, string> = {
+    prepared: "Đã chuẩn bị",
+    shared: "Đã chia sẻ",
+    viewed: "Đã xem",
+    completed: "Hoàn tất",
+    expired: "Hết hạn",
+  };
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? "bg-surface-muted text-muted"}`}>
-      {status}
+      {labels[status] ?? status}
     </span>
   );
 }

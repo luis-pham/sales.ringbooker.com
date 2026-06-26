@@ -13,11 +13,11 @@ type Evidence = {
 
 const TYPE_LABEL: Record<string, string> = {
   dm_screenshot: "DM",
-  reply_screenshot: "Reply",
-  demo_shared_screenshot: "Demo shared",
-  demo_viewed_confirm: "Demo viewed",
-  converted_proof: "Converted",
-  other: "Other",
+  reply_screenshot: "Phản hồi",
+  demo_shared_screenshot: "Đã chia sẻ demo",
+  demo_viewed_confirm: "Đã xem demo",
+  converted_proof: "Đã chuyển đổi",
+  other: "Khác",
 };
 
 /** Evidence thumbnails for a lead. `reloadKey` bumps to refetch after a new upload. */
@@ -35,8 +35,8 @@ export function EvidenceList({ leadId, reloadKey = 0 }: { leadId: string; reload
     return () => { cancelled = true; };
   }, [leadId, reloadKey]);
 
-  if (loading) return <div className="text-xs text-muted">Loading…</div>;
-  if (items.length === 0) return <p className="text-sm text-muted">No evidence uploaded yet.</p>;
+  if (loading) return <div className="text-xs text-muted">Đang tải…</div>;
+  if (items.length === 0) return <p className="text-sm text-muted">Chưa có bằng chứng.</p>;
 
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -52,7 +52,7 @@ export function EvidenceList({ leadId, reloadKey = 0 }: { leadId: string; reload
           {e.url ? (
             <img src={e.url} alt={e.type} className="aspect-square w-full object-cover" />
           ) : (
-            <div className="flex aspect-square items-center justify-center bg-surface-muted text-xs text-muted">n/a</div>
+            <div className="flex aspect-square items-center justify-center bg-surface-muted text-xs text-muted">không có</div>
           )}
           <span className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-[10px] text-white">
             {TYPE_LABEL[e.type] ?? e.type}

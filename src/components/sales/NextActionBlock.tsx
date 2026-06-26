@@ -28,13 +28,13 @@ export function NextActionBlock({
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold">{action.title}</div>
           <div className="mt-0.5 text-xs opacity-80">{action.desc}</div>
-          <div className="mt-1 text-xs font-medium">Due: {action.due}</div>
+          <div className="mt-1 text-xs font-medium">Hạn: {action.due}</div>
         </div>
       </div>
       {onMarkDone && (
         <div className="mt-3">
           <Button variant="outline" size="sm" onClick={onMarkDone}>
-            Mark done + log
+            Đánh dấu xong + ghi log
           </Button>
         </div>
       )}

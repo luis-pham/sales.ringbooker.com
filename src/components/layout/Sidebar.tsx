@@ -26,19 +26,19 @@ type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; role
 
 // Top-level: everyone's day-to-day work.
 const MAIN_ITEMS: NavItem[] = [
-  { href: "/analytics", label: "Overview", icon: BarChart3, roles: ["admin"] },
-  { href: "/sales", label: "Sales CRM", icon: Target, roles: ["admin", "outreacher", "viewer"] },
-  { href: "/leads", label: "Leads", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
-  { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
+  { href: "/analytics", label: "Tổng quan", icon: BarChart3, roles: ["admin"] },
+  { href: "/sales", label: "CRM bán hàng", icon: Target, roles: ["admin", "outreacher", "viewer"] },
+  { href: "/leads", label: "Lead", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
+  { href: "/demos", label: "Demo", icon: Bot, roles: ["admin", "outreacher"] },
 ];
 
 // Grouped under "Settings": configure-once / monitor (admin).
 const SETTINGS_ITEMS: NavItem[] = [
-  { href: "/assignment", label: "Assignment", icon: Share2, roles: ["admin"] },
-  { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
-  { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
-  { href: "/jobs", label: "Jobs", icon: BrainCircuit, roles: ["admin"] },
-  { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
+  { href: "/assignment", label: "Giao việc", icon: Share2, roles: ["admin"] },
+  { href: "/search", label: "Tìm kiếm", icon: Search, roles: ["admin"] },
+  { href: "/team", label: "Đội ngũ", icon: Users, roles: ["admin"] },
+  { href: "/jobs", label: "Tiến trình", icon: BrainCircuit, roles: ["admin"] },
+  { href: "/logs", label: "Log API", icon: ScrollText, roles: ["admin"] },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -104,7 +104,7 @@ export function Sidebar({
         {!collapsed && (
           <div className="min-w-0">
             <div className="text-sm font-semibold text-text">RingBooker Sales</div>
-            <div className="text-xs text-muted">Lead intelligence</div>
+            <div className="text-xs text-muted">Dữ liệu Lead</div>
           </div>
         )}
       </div>
@@ -126,7 +126,7 @@ export function Sidebar({
               >
                 <span className="flex items-center gap-3">
                   <Settings className="h-4 w-4 shrink-0" />
-                  Settings
+                  Cài đặt
                 </span>
                 <ChevronDown className={cn("h-4 w-4 transition-transform", settingsOpen ? "" : "-rotate-90")} />
               </button>
@@ -143,7 +143,7 @@ export function Sidebar({
       <div className="shrink-0 border-t border-border p-2">
         <button
           onClick={onToggle}
-          title={collapsed ? "Expand" : "Collapse"}
+          title={collapsed ? "Mở rộng" : "Thu gọn"}
           className={cn(
             "flex h-9 w-full items-center rounded-md text-sm text-muted transition-colors hover:bg-surface-muted hover:text-text",
             collapsed ? "justify-center" : "gap-2 px-3",
@@ -154,7 +154,7 @@ export function Sidebar({
           ) : (
             <>
               <ChevronLeft className="h-4 w-4" />
-              <span>Collapse</span>
+              <span>Thu gọn</span>
             </>
           )}
         </button>

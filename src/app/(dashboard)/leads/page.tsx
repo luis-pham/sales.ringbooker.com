@@ -6,22 +6,22 @@ import { requireAuth } from "@/lib/auth/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const STATUS_OPTIONS = [
-  { value: "outreach_ready", label: "Outreach Ready" },
-  { value: "no_social", label: "No Social" },
-  { value: "enriched", label: "Enriched" },
-  { value: "new", label: "New" },
+  { value: "outreach_ready", label: "Sẵn sàng outreach" },
+  { value: "no_social", label: "Không có social" },
+  { value: "enriched", label: "Đã làm giàu dữ liệu" },
+  { value: "new", label: "Mới" },
 ];
 
 const SCORE_OPTIONS = [
-  { value: "1", label: "Priority 1" },
-  { value: "2", label: "Priority 2" },
-  { value: "3", label: "Priority 3" },
+  { value: "1", label: "Ưu tiên 1" },
+  { value: "2", label: "Ưu tiên 2" },
+  { value: "3", label: "Ưu tiên 3" },
 ];
 
 const TIER_OPTIONS = [
-  { value: "A", label: "Direct booking" },
-  { value: "B", label: "Link booking" },
-  { value: "C", label: "Capture only" },
+  { value: "A", label: "Đặt lịch trực tiếp" },
+  { value: "B", label: "Đặt lịch qua link" },
+  { value: "C", label: "Chỉ thu thông tin" },
 ];
 
 export default async function LeadsPage({
@@ -89,16 +89,16 @@ export default async function LeadsPage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-text">Leads</h1>
-        <p className="text-sm text-muted">Prioritized salons for RingBooker outreach.</p>
+        <h1 className="text-xl font-semibold text-text">Lead</h1>
+        <p className="text-sm text-muted">Salon ưu tiên cho outreach RingBooker.</p>
       </div>
       <Suspense>
         <FilterBar
           selects={[
-            { paramKey: "score", placeholder: "All scores", options: SCORE_OPTIONS },
-            { paramKey: "tier", placeholder: "All integrations", options: TIER_OPTIONS },
+            { paramKey: "score", placeholder: "Tất cả điểm", options: SCORE_OPTIONS },
+            { paramKey: "tier", placeholder: "Tất cả tích hợp", options: TIER_OPTIONS },
             ...(profile.role === "admin"
-              ? [{ paramKey: "status", placeholder: "All", options: STATUS_OPTIONS }]
+              ? [{ paramKey: "status", placeholder: "Tất cả", options: STATUS_OPTIONS }]
               : []),
           ]}
         />

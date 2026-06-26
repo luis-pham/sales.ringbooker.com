@@ -21,7 +21,7 @@ function CopyBlock({ label, hint, text, rows = 4 }: { label: string; hint?: stri
         <span className="text-xs font-semibold text-text">{label}</span>
         <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 px-2">
           <Copy className="mr-1 h-3 w-3" />
-          {copied ? "Copied!" : "Copy"}
+          {copied ? "Đã sao chép!" : "Sao chép"}
         </Button>
       </div>
       {hint && <p className="mb-1.5 text-xs text-muted">{hint}</p>}
@@ -36,23 +36,23 @@ function SingleSequence({ lead }: { lead: PipelineLead }) {
   return (
     <div className="space-y-4">
       <CopyBlock
-        label="1 · Opener (send first — no link)"
-        hint="Cold DM. Pure curiosity + permission. Wait for a reply before sending the demo."
+        label="1 · Tin mở đầu (gửi trước — không kèm link)"
+        hint="DM lạnh. Gợi tò mò + xin phép. Chờ họ phản hồi trước khi gửi demo."
         text={seq.opener}
         rows={3}
       />
       <CopyBlock
-        label="2 · Reveal + demo link (after they reply)"
-        hint="Send once they reply. Delivers on the curiosity with their personalized demo."
+        label="2 · Tiết lộ + link demo (sau khi họ phản hồi)"
+        hint="Gửi sau khi họ phản hồi. Tiếp nối sự tò mò bằng demo cá nhân hóa."
         text={seq.reveal}
         rows={5}
       />
       <div className="rounded-lg border border-border bg-surface-muted p-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Follow-ups (pick by situation)</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Follow-up (chọn theo tình huống)</div>
         <div className="space-y-3">
-          <CopyBlock label="Opened, no reply" text={seq.followUps.openedNoReply} rows={2} />
-          <CopyBlock label="Replied, hasn't opened link" text={seq.followUps.notOpened} rows={3} />
-          <CopyBlock label="Reacted positively" text={seq.followUps.positive} rows={2} />
+          <CopyBlock label="Đã mở, chưa phản hồi" text={seq.followUps.openedNoReply} rows={2} />
+          <CopyBlock label="Đã phản hồi, chưa mở link" text={seq.followUps.notOpened} rows={3} />
+          <CopyBlock label="Phản ứng tích cực" text={seq.followUps.positive} rows={2} />
         </div>
       </div>
     </div>
@@ -64,7 +64,7 @@ function BulkOpeners({ leads }: { leads: PipelineLead[] }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        Each lead gets its own randomized opener (no link). Reply first, then open a lead for its reveal + demo link.
+        Mỗi lead có một tin mở đầu ngẫu nhiên riêng (không kèm link). Chờ phản hồi trước, sau đó mở lead để lấy tin tiết lộ + link demo.
       </p>
       <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
         {leads.map((lead) => (
@@ -92,7 +92,7 @@ export function DMTemplateModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-text">
-            {isSingle ? `DM sequence — ${leads[0].name}` : `Openers (${leads.length} leads)`}
+            {isSingle ? `Chuỗi DM — ${leads[0].name}` : `Tin mở đầu (${leads.length} Lead)`}
           </h2>
           <button onClick={onClose} className="text-muted hover:text-text">
             <X className="h-4 w-4" />
@@ -102,7 +102,7 @@ export function DMTemplateModal({
         {isSingle ? <SingleSequence lead={leads[0]} /> : <BulkOpeners leads={leads} />}
 
         <div className="mt-5 flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+          <Button variant="outline" size="sm" onClick={onClose}>Đóng</Button>
         </div>
       </div>
     </div>

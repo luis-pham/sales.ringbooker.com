@@ -13,6 +13,12 @@ import { Badge } from "@/components/ui/badge";
 type TeamRole = "admin" | "outreacher" | "viewer";
 type ProfileRow = { id: string; email: string; role: TeamRole; is_active: boolean };
 
+const ROLE_LABELS: Record<TeamRole, string> = {
+  admin: "Quản trị viên",
+  outreacher: "Outreacher",
+  viewer: "Người xem",
+};
+
 export function TeamClient({
   profiles,
   invitations,
@@ -38,10 +44,10 @@ export function TeamClient({
     const json = (await response.json()) as { data?: { token: string }; error?: string };
     setLoading(false);
     if (!response.ok) {
-      toast.error(json.error ?? "Invite failed");
+      toast.error(json.error ?? "Mời thất bại");
       return;
     }
-    toast.success(`Invite sent for ${email.trim()}. They can now sign in with Google.`);
+    toast.success(`Đã gửi lời mời cho ${email.trim()}. Họ có thể đăng nhập bằng Google.`);
     setEmail("");
     router.refresh();
   }
@@ -63,10 +69,10 @@ export function TeamClient({
     const json = (await response.json().catch(() => ({}))) as { error?: string };
     setSavingMemberId(null);
     if (!response.ok) {
-      toast.error(json.error ?? "Update failed");
+      toast.error(json.error ?? "Cập nhật thất bại");
       return;
     }
-    toast.success("Member updated");
+    toast.success("Đã cập nhật thành viên");
     router.refresh();
   }
 
@@ -78,7 +84,7 @@ export function TeamClient({
       {/* Invite form */}
       <Card>
         <CardHeader>
-          <CardTitle>Invite user</CardTitle>
+          <CardTitle>Mời người dùng</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input
@@ -90,13 +96,13 @@ export function TeamClient({
           />
           <Select value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="outreacher">Outreacher</option>
-            <option value="viewer">Viewer</option>
+            <option value="viewer">Người xem</option>
           </Select>
           <Button onClick={invite} disabled={loading || !email.trim()} className="w-full">
-            {loading ? "Inviting…" : "Send invite"}
+            {loading ? "Đang mời…" : "Gửi lời mời"}
           </Button>
           <p className="text-xs text-muted">
-            After adding their email here, they can sign in directly with that Google account — no link needed.
+            Sau khi thêm email ở đây, họ có thể đăng nhập trực tiếp bằng tài khoản Google đó — không cần link.
           </p>
         </CardContent>
       </Card>
@@ -106,11 +112,11 @@ export function TeamClient({
         {/* Active members */}
         <Card>
           <CardHeader>
-            <CardTitle>Members ({profiles.length})</CardTitle>
+            <CardTitle>Thành viên ({profiles.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {profiles.length === 0 && (
-              <p className="text-sm text-muted">No members yet.</p>
+              <p className="text-sm text-muted">Chưa có thành viên.</p>
             )}
             {profiles.map((p) => {
               const isSaving = savingMemberId === p.id;
@@ -120,14 +126,14 @@ export function TeamClient({
                     <div className="truncate text-sm font-medium text-text">{p.email}</div>
                     <div className="mt-1 flex items-center gap-2">
                       <Badge variant={p.is_active ? "emerald" : "slate"}>
-                        {p.is_active ? "Active" : "Inactive"}
+                        {p.is_active ? "Đang hoạt động" : "Không hoạt động"}
                       </Badge>
-                      <span className="text-xs text-muted capitalize">{p.role}</span>
+                      <span className="text-xs text-muted">{ROLE_LABELS[p.role]}</span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Select
-                      aria-label={`Role for ${p.email}`}
+                      aria-label={`Vai trò của ${p.email}`}
                       value={p.role}
                       disabled={isSaving}
                       onChange={(event) => {
@@ -136,9 +142,9 @@ export function TeamClient({
                       }}
                       className="sm:w-36"
                     >
-                      <option value="admin">Admin</option>
+                      <option value="admin">Quản trị viên</option>
                       <option value="outreacher">Outreacher</option>
-                      <option value="viewer">Viewer</option>
+                      <option value="viewer">Người xem</option>
                     </Select>
                     <Button
                       type="button"
@@ -148,7 +154,7 @@ export function TeamClient({
                       onClick={() => updateMember(p, { is_active: !p.is_active })}
                       className="sm:w-28"
                     >
-                      {isSaving ? "Saving..." : p.is_active ? "Deactivate" : "Activate"}
+                      {isSaving ? "Đang lưu..." : p.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
                     </Button>
                   </div>
                 </div>
@@ -161,22 +167,22 @@ export function TeamClient({
         {pending.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Pending invites ({pending.length})</CardTitle>
+              <CardTitle>Lời mời đang chờ ({pending.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {pending.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between rounded-md border border-border p-3">
                   <div>
                     <div className="text-sm font-medium text-text">{inv.email}</div>
-                    <div className="text-xs text-muted capitalize">{inv.role} · Waiting for Google sign-in</div>
+                    <div className="text-xs text-muted">{ROLE_LABELS[inv.role as TeamRole] ?? inv.role} · Chờ đăng nhập Google</div>
                   </div>
                   <button
                     onClick={() => copyLink(inv.token)}
-                    title="Copy invite link (fallback)"
+                    title="Sao chép link mời (dự phòng)"
                     className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted hover:bg-surface-muted hover:text-text"
                   >
                     {copied === inv.token
-                      ? <><Check className="h-3 w-3 text-emerald-600" /> Copied</>
+                      ? <><Check className="h-3 w-3 text-emerald-600" /> Đã sao chép</>
                       : <><Copy className="h-3 w-3" /> Link</>
                     }
                   </button>
@@ -190,13 +196,13 @@ export function TeamClient({
         {accepted.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Accepted invites ({accepted.length})</CardTitle>
+              <CardTitle>Lời mời đã chấp nhận ({accepted.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {accepted.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between rounded-md border border-border p-3">
                   <div className="text-sm font-medium text-text">{inv.email}</div>
-                  <Badge variant="emerald">Accepted</Badge>
+                  <Badge variant="emerald">Đã chấp nhận</Badge>
                 </div>
               ))}
             </CardContent>

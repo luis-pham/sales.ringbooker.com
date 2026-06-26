@@ -73,7 +73,7 @@ function LeadRow({
       </div>
       {urgent && lead.daysSinceLastAction != null ? (
         <div className="mt-2 text-xs font-medium text-red-600">
-          {lead.daysSinceLastAction} days without action
+          {lead.daysSinceLastAction} ngày chưa xử lý
         </div>
       ) : null}
     </div>
@@ -117,7 +117,7 @@ function GroupSection({
               disabled={buildingDemos}
               className="rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
             >
-              {buildingDemos ? "Đang tính toán..." : "⚡ Build demos"}
+              {buildingDemos ? "Đang chạy..." : "⚡ Tạo demo"}
             </button>
           ) : null}
           <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-text">
@@ -134,12 +134,12 @@ function GroupSection({
               disabled={running}
               className="mb-1 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
             >
-              {running ? "Running..." : "Run now"}
+              {running ? "Đang chạy..." : "Chạy ngay"}
             </button>
           ) : null}
           {group.leads.length === 0 ? (
             <div className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted">
-              Empty
+              Trống
             </div>
           ) : (
             group.leads.map((lead) => (
@@ -210,7 +210,7 @@ export function MyDayAdmin({
       const json = await res.json().catch(() => null);
 
       if (!res.ok) {
-        toast.error(json?.error ?? "Failed to build demos");
+        toast.error(json?.error ?? "Tạo demo thất bại");
         return;
       }
 
@@ -226,10 +226,10 @@ export function MyDayAdmin({
       } else if (json?.status === "no_leads") {
         toast.info("Không có lead đủ điều kiện");
       } else {
-        toast.error("Failed to build demos");
+        toast.error("Tạo demo thất bại");
       }
     } catch {
-      toast.error("Failed to build demos");
+      toast.error("Tạo demo thất bại");
     } finally {
       setBuildingDemos(false);
     }
@@ -249,7 +249,7 @@ export function MyDayAdmin({
     <div className="space-y-3">
       <GroupSection
         id="urgent"
-        label="🔴 Needs attention"
+        label="🔴 Cần xử lý ngay"
         group={data.urgent}
         open={open.urgent}
         onToggle={() => setOpen((prev) => ({ ...prev, urgent: !prev.urgent }))}
@@ -257,7 +257,7 @@ export function MyDayAdmin({
       />
       <GroupSection
         id="assignedToday"
-        label="🟡 Assigned today"
+        label="🟡 Đã giao hôm nay"
         group={data.assignedToday}
         open={open.assignedToday}
         onToggle={() => setOpen((prev) => ({ ...prev, assignedToday: !prev.assignedToday }))}
@@ -265,7 +265,7 @@ export function MyDayAdmin({
       />
       <GroupSection
         id="readyToAssign"
-        label="🟢 Ready to assign"
+        label="🟢 Sẵn sàng giao"
         group={data.readyToAssign}
         open={open.readyToAssign}
         running={running}
@@ -275,7 +275,7 @@ export function MyDayAdmin({
       />
       <GroupSection
         id="waitingDemo"
-        label="⚪ Waiting for demo"
+        label="⚪ Chờ demo"
         group={data.waitingDemo}
         open={open.waitingDemo}
         buildingDemos={buildingDemos}

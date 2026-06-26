@@ -25,11 +25,11 @@ export function LeadListClient({ leads }: { leads: LeadRow[] }) {
         <thead className="border-b border-border text-left text-xs text-muted">
           <tr>
             <th className="px-4 py-3">Salon</th>
-            <th className="px-4 py-3">Score</th>
-            <th className="px-4 py-3">Integration</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Rating</th>
-            <th className="px-4 py-3">Contact</th>
+            <th className="px-4 py-3">Điểm</th>
+            <th className="px-4 py-3">Tích hợp</th>
+            <th className="px-4 py-3">Trạng thái</th>
+            <th className="px-4 py-3">Đánh giá</th>
+            <th className="px-4 py-3">Liên hệ</th>
           </tr>
         </thead>
         <tbody>
@@ -42,7 +42,7 @@ export function LeadListClient({ leads }: { leads: LeadRow[] }) {
                     {lead.name}
                   </Link>
                   <div className="text-xs text-muted">
-                    {[lead.city, lead.state].filter(Boolean).join(", ") || "Unknown location"}
+                    {[lead.city, lead.state].filter(Boolean).join(", ") || "Chưa rõ địa điểm"}
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -55,7 +55,7 @@ export function LeadListClient({ leads }: { leads: LeadRow[] }) {
                   <StatusBadge status={lead.status} />
                 </td>
                 <td className="px-4 py-3">
-                  {lead.rating ?? "-"} · {lead.review_count ?? 0} reviews
+                  {lead.rating ?? "-"} · {lead.review_count ?? 0} đánh giá
                 </td>
                 <td className="px-4 py-3 text-muted">{lead.phone ?? lead.website_url ?? "-"}</td>
               </tr>

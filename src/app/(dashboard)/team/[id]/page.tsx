@@ -9,8 +9,14 @@ import { STAGE_ORDER, STAGE_META } from "@/lib/stageConfig";
 import type { LeadStage } from "@/types";
 
 const EVIDENCE_LABEL: Record<string, string> = {
-  dm_screenshot: "DM", reply_screenshot: "Reply", demo_shared_screenshot: "Demo shared",
-  demo_viewed_confirm: "Demo viewed", converted_proof: "Converted", other: "Other",
+  dm_screenshot: "DM", reply_screenshot: "Phản hồi", demo_shared_screenshot: "Đã chia sẻ demo",
+  demo_viewed_confirm: "Đã xem demo", converted_proof: "Đã chuyển đổi", other: "Khác",
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Quản trị viên",
+  outreacher: "Outreacher",
+  viewer: "Người xem",
 };
 
 function toStage(s: string | null): LeadStage {
@@ -59,22 +65,22 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
     <div className="space-y-5">
       <div>
         <Link href="/analytics" className="inline-flex items-center gap-1 text-xs text-muted hover:text-text">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Overview
+          <ArrowLeft className="h-3.5 w-3.5" /> Quay lại tổng quan
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-text">{profile.full_name ?? profile.email}</h1>
         <p className="text-sm text-muted">
-          {profile.email} · {profile.role}{profile.is_active ? "" : " · inactive"}
+          {profile.email} · {ROLE_LABEL[profile.role] ?? profile.role}{profile.is_active ? "" : " · không hoạt động"}
         </p>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
-          ["Assigned", total],
-          ["In progress", inProgress],
-          ["Converted", get("converted")],
-          ["DMs this week", dmsThisWeek],
-          ["Evidence", evidence.length],
+          ["Đã giao", total],
+          ["Đang xử lý", inProgress],
+          ["Đã chuyển đổi", get("converted")],
+          ["DM tuần này", dmsThisWeek],
+          ["Bằng chứng", evidence.length],
         ].map(([label, value]) => (
           <Card key={label as string}>
             <CardContent className="p-4">
@@ -87,7 +93,7 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Stage breakdown */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">Their pipeline</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm">Pipeline của họ</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
             {STAGE_ORDER.map((stage) => {
@@ -107,10 +113,10 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Activity */}
         <Card>
-          <CardHeader><CardTitle className="text-sm">Recent activity</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Hoạt động gần đây</CardTitle></CardHeader>
           <CardContent>
             {(events ?? []).length === 0 ? (
-              <p className="text-sm text-muted">No activity yet.</p>
+              <p className="text-sm text-muted">Chưa có hoạt động.</p>
             ) : (
               <ol className="space-y-3">
                 {(events ?? []).map((e: any) => (
@@ -130,10 +136,10 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
 
         {/* Evidence gallery */}
         <Card>
-          <CardHeader><CardTitle className="text-sm">Evidence ({evidence.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Bằng chứng ({evidence.length})</CardTitle></CardHeader>
           <CardContent>
             {evidence.length === 0 ? (
-              <p className="text-sm text-muted">No evidence uploaded.</p>
+              <p className="text-sm text-muted">Chưa có bằng chứng.</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {evidence.map((e) => (
@@ -142,7 +148,7 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
                     className="relative block overflow-hidden rounded-md border border-border">
                     {e.url
                       ? <img src={e.url} alt={e.type} className="aspect-square w-full object-cover" />
-                      : <div className="flex aspect-square items-center justify-center bg-surface-muted text-xs text-muted">n/a</div>}
+                      : <div className="flex aspect-square items-center justify-center bg-surface-muted text-xs text-muted">không có</div>}
                     <span className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-[10px] text-white">
                       {EVIDENCE_LABEL[e.type] ?? e.type}
                     </span>
@@ -156,16 +162,16 @@ export default async function RepDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Lead list */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">Assigned leads ({(leads ?? []).length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm">Lead đã giao ({(leads ?? []).length})</CardTitle></CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] text-sm">
               <thead className="border-b border-border bg-surface-muted text-left text-xs text-muted">
                 <tr>
-                  <th className="px-4 py-2.5">Business</th>
-                  <th className="px-4 py-2.5">Location</th>
-                  <th className="px-4 py-2.5">Stage</th>
-                  <th className="px-4 py-2.5">Updated</th>
+                  <th className="px-4 py-2.5">Doanh nghiệp</th>
+                  <th className="px-4 py-2.5">Địa điểm</th>
+                  <th className="px-4 py-2.5">Giai đoạn</th>
+                  <th className="px-4 py-2.5">Cập nhật</th>
                 </tr>
               </thead>
               <tbody>

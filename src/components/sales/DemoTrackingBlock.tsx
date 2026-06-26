@@ -2,9 +2,9 @@ import { Progress } from "@/components/ui/progress";
 import type { DemoTracking, DemoSession } from "@/types";
 
 function timeBadge(hour: number) {
-  if (hour < 12) return { label: "Morning", cls: "bg-amber-50 text-amber-700" };
-  if (hour < 17) return { label: "Afternoon", cls: "bg-blue-50 text-blue-700" };
-  return { label: "Evening", cls: "bg-violet-50 text-violet-700" };
+  if (hour < 12) return { label: "Buổi sáng", cls: "bg-amber-50 text-amber-700" };
+  if (hour < 17) return { label: "Buổi chiều", cls: "bg-blue-50 text-blue-700" };
+  return { label: "Buổi tối", cls: "bg-violet-50 text-violet-700" };
 }
 
 function pctColor(pct: number) {
@@ -50,7 +50,7 @@ export function DemoTrackingBlock({
   }
 
   if (!tracking) {
-    return <p className="text-sm text-muted">No demo shared yet.</p>;
+    return <p className="text-sm text-muted">Chưa chia sẻ demo.</p>;
   }
 
   const isHot = tracking.plays >= 2 || tracking.pct >= 80;
@@ -74,17 +74,17 @@ export function DemoTrackingBlock({
 
       {tracking.lastSeen && (
         <div className="text-xs text-muted">
-          Last seen: {new Date(tracking.lastSeen).toLocaleString()}
+          Xem lần cuối: {new Date(tracking.lastSeen).toLocaleString()}
         </div>
       )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          ["Plays", String(tracking.plays)],
-          ["Listened", `${tracking.pct}%`],
-          ["Last seen", tracking.lastSeen ? new Date(tracking.lastSeen).toLocaleDateString() : "—"],
-          ["Sessions", String(tracking.sessions.length)],
+          ["Lượt xem", String(tracking.plays)],
+          ["Đã nghe", `${tracking.pct}%`],
+          ["Xem lần cuối", tracking.lastSeen ? new Date(tracking.lastSeen).toLocaleDateString() : "—"],
+          ["Phiên", String(tracking.sessions.length)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-md border border-border p-2">
             <div className="text-xs text-muted">{label}</div>
@@ -96,7 +96,7 @@ export function DemoTrackingBlock({
       {/* Progress bar */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-muted">
-          <span>Listened</span>
+          <span>Đã nghe</span>
           <span>{tracking.pct}%</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
@@ -110,7 +110,7 @@ export function DemoTrackingBlock({
       {/* Sessions */}
       {tracking.sessions.length > 0 && (
         <div>
-          <div className="mb-1 text-xs font-medium text-muted uppercase tracking-wide">Sessions</div>
+          <div className="mb-1 text-xs font-medium text-muted uppercase tracking-wide">Phiên</div>
           <div>
             {tracking.sessions.map((s) => (
               <SessionRow key={s.id} session={s} />

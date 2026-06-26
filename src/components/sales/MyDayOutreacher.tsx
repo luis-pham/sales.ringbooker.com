@@ -41,8 +41,8 @@ function QuotaBar({ quota }: { quota: Quota | null }) {
   return (
     <div className="rounded-lg border border-border bg-surface px-4 py-3">
       <div className="mb-2 flex items-center justify-between text-xs font-semibold text-muted">
-        <span>Quota</span>
-        <span className="text-text">{sent}/{target} DMs today</span>
+        <span>Chỉ tiêu</span>
+        <span className="text-text">{sent}/{target} DM hôm nay</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
         <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
@@ -75,7 +75,7 @@ function LeadRow({
       </div>
       {urgent && lead.daysSinceLastAction != null ? (
         <div className="mt-2 text-xs font-medium text-red-600">
-          {lead.daysSinceLastAction} days without action
+          {lead.daysSinceLastAction} ngày chưa xử lý
         </div>
       ) : null}
     </button>
@@ -113,7 +113,7 @@ function GroupSection({
         <div className="space-y-2 border-t border-border p-3">
           {group.leads.length === 0 ? (
             <div className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted">
-              Empty
+              Trống
             </div>
           ) : (
             group.leads.map((lead) => (
@@ -193,7 +193,7 @@ export function MyDayOutreacher({
       <QuotaBar quota={quota} />
       <GroupSection
         id="doNow"
-        label="🔴 Do now"
+        label="🔴 Làm ngay"
         group={data.doNow}
         open={open.doNow}
         onToggle={() => setOpen((prev) => ({ ...prev, doNow: !prev.doNow }))}
@@ -201,7 +201,7 @@ export function MyDayOutreacher({
       />
       <GroupSection
         id="followUp"
-        label="🟡 Follow up"
+        label="🟡 Theo dõi lại"
         group={data.followUp}
         open={open.followUp}
         onToggle={() => setOpen((prev) => ({ ...prev, followUp: !prev.followUp }))}
@@ -209,7 +209,7 @@ export function MyDayOutreacher({
       />
       <GroupSection
         id="newDMs"
-        label="🟢 Send new DMs"
+        label="🟢 Gửi DM mới"
         group={data.newDMs}
         open={open.newDMs}
         onToggle={() => setOpen((prev) => ({ ...prev, newDMs: !prev.newDMs }))}

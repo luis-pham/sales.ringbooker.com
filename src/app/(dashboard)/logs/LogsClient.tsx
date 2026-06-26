@@ -5,34 +5,40 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 
 const RANGES = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "7 days" },
-  { value: "month", label: "30 days" },
-  { value: "all", label: "All time" },
+  { value: "today", label: "Hôm nay" },
+  { value: "week", label: "7 ngày" },
+  { value: "month", label: "30 ngày" },
+  { value: "all", label: "Tất cả" },
 ];
 
 const PROVIDER_LABELS: Record<string, string> = {
-  serper: "Search API",
-  google_places: "Places API",
-  apify: "Social API",
-  cloudflare: "Browser API",
+  serper: "API tìm kiếm",
+  google_places: "API địa điểm",
+  apify: "API social",
+  cloudflare: "API trình duyệt",
 };
 
 const ENDPOINT_LABELS: Record<string, string> = {
-  maps_search: "Search businesses by location",
-  reviews: "Fetch business reviews",
-  web_search: "Search the web",
-  place_details: "Fetch business details",
-  instagram_scrape: "Fetch social profile",
-  instagram_scrape_batch: "Fetch social profiles (batch)",
-  browser_rendering_content: "Read page content",
-  browser_rendering_markdown: "Extract page content",
+  maps_search: "Tìm doanh nghiệp theo địa điểm",
+  reviews: "Lấy đánh giá doanh nghiệp",
+  web_search: "Tìm kiếm web",
+  place_details: "Lấy chi tiết doanh nghiệp",
+  instagram_scrape: "Lấy hồ sơ social",
+  instagram_scrape_batch: "Lấy hồ sơ social hàng loạt",
+  browser_rendering_content: "Đọc nội dung trang",
+  browser_rendering_markdown: "Trích xuất nội dung trang",
 };
 
 const PROVIDER_COLORS: Record<string, string> = {
   serper: "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
   google_places: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   apify: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  success: "Thành công",
+  failed: "Thất bại",
+  error: "Lỗi",
 };
 
 type LogRow = {
@@ -84,8 +90,8 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-text">API Usage Logs</h1>
-        <p className="text-sm text-muted">Monitor external API calls and estimated costs.</p>
+        <h1 className="text-xl font-semibold text-text">Log sử dụng API</h1>
+        <p className="text-sm text-muted">Theo dõi API bên ngoài và chi phí ước tính.</p>
       </div>
 
       {/* Range filter */}
@@ -109,13 +115,13 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-xs text-muted">Total calls</div>
+            <div className="text-xs text-muted">Tổng lượt gọi</div>
             <div className="mt-1 text-2xl font-semibold text-text">{totalCalls.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-xs text-muted">Est. cost</div>
+            <div className="text-xs text-muted">Chi phí ước tính</div>
             <div className="mt-1 text-2xl font-semibold text-text">${totalCost.toFixed(3)}</div>
           </CardContent>
         </Card>
@@ -133,7 +139,7 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
       {/* Provider breakdown */}
       {providerEntries.length > 0 && (
         <div className="rounded-lg border border-border bg-surface">
-          <div className="border-b border-border px-4 py-3 text-sm font-medium text-text">By provider</div>
+          <div className="border-b border-border px-4 py-3 text-sm font-medium text-text">Theo provider</div>
           <div className="divide-y divide-border">
             {providerEntries.map(([provider, stats]) => (
               <div key={provider} className="flex items-center justify-between px-4 py-3">
@@ -143,7 +149,7 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
                   </span>
                 </div>
                 <div className="flex items-center gap-6 text-sm">
-                  <span className="text-text font-medium">{stats.calls.toLocaleString()} calls</span>
+                  <span className="text-text font-medium">{stats.calls.toLocaleString()} lượt gọi</span>
                   <span className="w-20 text-right text-muted">${stats.cost.toFixed(3)}</span>
                 </div>
               </div>
@@ -155,7 +161,7 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
       {/* Recent calls table */}
       <div className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border px-4 py-3 text-sm font-medium text-text">
-          Recent calls ({logs.length})
+          Lượt gọi gần đây ({logs.length})
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
@@ -163,17 +169,17 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
               <tr>
                 <th className="px-4 py-3">Provider</th>
                 <th className="px-4 py-3">Endpoint</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Context</th>
-                <th className="px-4 py-3 text-right">Cost</th>
-                <th className="px-4 py-3 text-right">Time</th>
+                <th className="px-4 py-3">Trạng thái</th>
+                <th className="px-4 py-3">Ngữ cảnh</th>
+                <th className="px-4 py-3 text-right">Chi phí</th>
+                <th className="px-4 py-3 text-right">Thời gian</th>
               </tr>
             </thead>
             <tbody>
               {logs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">
-                    No API calls in this period.
+                    Không có lượt gọi API trong khoảng này.
                   </td>
                 </tr>
               )}
@@ -187,13 +193,13 @@ export function LogsClient({ logs, byProvider, totalCalls, totalCost, range }: P
                   <td className="px-4 py-3 text-xs text-muted">{getEndpointLabel(log.endpoint)}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium ${log.status === "success" ? "text-success" : "text-danger"}`}>
-                      {log.status}
+                      {STATUS_LABELS[log.status] ?? log.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted">
                     {log.search_run_id ? (
                       <Link href={`/search/${log.search_run_id}`} className="text-violet-600 hover:underline">
-                        Run
+                        Lượt chạy
                       </Link>
                     ) : log.lead_id ? (
                       <Link href={`/leads/${log.lead_id}`} className="text-violet-600 hover:underline">

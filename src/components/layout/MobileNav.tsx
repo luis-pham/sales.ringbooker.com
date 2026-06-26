@@ -22,19 +22,19 @@ import type { UserRole } from "@/types";
 
 // Primary = day-to-day work (bottom bar). Mirrors the desktop sidebar's main group.
 const primaryItems = [
-  { href: "/analytics", label: "Overview", icon: BarChart3, roles: ["admin"] },
-  { href: "/sales", label: "Sales CRM", icon: Target, roles: ["admin", "outreacher", "viewer"] },
-  { href: "/leads", label: "Leads", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
-  { href: "/demos", label: "Demos", icon: Bot, roles: ["admin", "outreacher"] },
+  { href: "/analytics", label: "Tổng quan", icon: BarChart3, roles: ["admin"] },
+  { href: "/sales", label: "CRM bán hàng", icon: Target, roles: ["admin", "outreacher", "viewer"] },
+  { href: "/leads", label: "Lead", icon: Scissors, roles: ["admin", "outreacher", "viewer"] },
+  { href: "/demos", label: "Demo", icon: Bot, roles: ["admin", "outreacher"] },
 ] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
 
 // Secondary = the "Settings" group, shown in the "More" sheet.
 const secondaryItems = [
-  { href: "/assignment", label: "Assignment", icon: Share2, roles: ["admin"] },
-  { href: "/search", label: "Search", icon: Search, roles: ["admin"] },
-  { href: "/team", label: "Team", icon: Users, roles: ["admin"] },
-  { href: "/jobs", label: "Jobs", icon: BrainCircuit, roles: ["admin"] },
-  { href: "/logs", label: "API Logs", icon: ScrollText, roles: ["admin"] },
+  { href: "/assignment", label: "Giao việc", icon: Share2, roles: ["admin"] },
+  { href: "/search", label: "Tìm kiếm", icon: Search, roles: ["admin"] },
+  { href: "/team", label: "Đội ngũ", icon: Users, roles: ["admin"] },
+  { href: "/jobs", label: "Tiến trình", icon: BrainCircuit, roles: ["admin"] },
+  { href: "/logs", label: "Log API", icon: ScrollText, roles: ["admin"] },
 ] satisfies Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }>;
 
 export function MobileNav({ role }: { role: UserRole }) {
@@ -87,7 +87,7 @@ export function MobileNav({ role }: { role: UserRole }) {
               )}
             >
               <MoreHorizontal className="h-4 w-4" />
-              <span>More</span>
+              <span>Thêm</span>
             </button>
           )}
         </div>
@@ -104,7 +104,7 @@ export function MobileNav({ role }: { role: UserRole }) {
           {/* Sheet */}
           <div className="fixed inset-x-0 bottom-14 z-50 rounded-t-2xl border-t border-border bg-surface p-4 pb-safe md:hidden">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-semibold text-text">More</span>
+              <span className="text-sm font-semibold text-text">Thêm</span>
               <button
                 onClick={() => setOpen(false)}
                 className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-muted text-muted"

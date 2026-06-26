@@ -47,25 +47,25 @@ const EMPTY_DATA = STAGES.reduce((acc, stage) => {
 }, {} as KanbanData);
 
 const EMPTY_MESSAGES: Record<LeadStage, string> = {
-  ready: "Chưa có lead\nAssign chưa chạy hôm nay",
+  ready: "Chưa có lead\nGiao việc chưa chạy hôm nay",
   sent: "Chưa gửi DM nào",
   viewed: "Chưa có lead xem demo",
   hot: "Chưa có lead quan tâm",
-  replied: "Chưa có lead reply",
-  converted: "Chưa có conversion",
-  signedup: "Empty",
-  onboarding: "Empty",
-  trial: "Empty",
-  ghosted: "Empty",
-  churned: "Empty",
+  replied: "Chưa có lead phản hồi",
+  converted: "Chưa có chuyển đổi",
+  signedup: "Trống",
+  onboarding: "Trống",
+  trial: "Trống",
+  ghosted: "Trống",
+  churned: "Trống",
 };
 
 function daysAgo(iso: string | undefined) {
-  if (!iso) return "N/A";
+  if (!iso) return "Không có";
   const diff = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
-  if (diff === 0) return "today";
-  if (diff === 1) return "1 day ago";
-  return `${diff} days ago`;
+  if (diff === 0) return "hôm nay";
+  if (diff === 1) return "1 ngày trước";
+  return `${diff} ngày trước`;
 }
 
 function relativeVi(iso: string | undefined) {
@@ -99,24 +99,24 @@ function demoLine(lead: KanbanLead) {
     return (
       <span className="inline-flex items-center gap-1">
         <CheckCircle className="h-3 w-3" />
-        Converted
+        Đã chuyển đổi
       </span>
     );
   }
 
-  if (lead.stage === "replied") return `Reply ${relativeVi(lead.updated_at ?? lead.updatedAt)}`;
+  if (lead.stage === "replied") return `Phản hồi ${relativeVi(lead.updated_at ?? lead.updatedAt)}`;
 
   if ((lead.demo?.plays ?? 0) > 0) {
     return (
       <span className="inline-flex items-center gap-1">
         <Play className="h-3 w-3" />
-        {lead.demo?.plays} plays · {lead.demo?.pct ?? 0}%
+        {lead.demo?.plays} lượt xem · {lead.demo?.pct ?? 0}%
       </span>
     );
   }
 
-  if (lead.stage === "ready" || lead.stage === "sent") return "No plays";
-  return "No plays";
+  if (lead.stage === "ready" || lead.stage === "sent") return "Chưa có lượt xem";
+  return "Chưa có lượt xem";
 }
 
 function LeadCard({
@@ -140,7 +140,7 @@ function LeadCard({
         <span>{daysAgo(lead.updated_at ?? lead.updatedAt)}</span>
       </div>
       {lead.assignedRepName ? (
-        <div className="mt-1 truncate text-xs text-muted">Assigned: {lead.assignedRepName}</div>
+        <div className="mt-1 truncate text-xs text-muted">Đã giao: {lead.assignedRepName}</div>
       ) : null}
     </button>
   );
@@ -169,8 +169,8 @@ function AdminSummaryStrip({ summary }: { summary: PipelineSummary | null }) {
 
   const items = [
     { label: "Kho chờ demo", value: summary.waitingDemo },
-    { label: "Sẵn sàng assign", value: summary.readyToAssign },
-    { label: "Assigned hôm nay", value: summary.assignedToday },
+    { label: "Sẵn sàng giao", value: summary.readyToAssign },
+    { label: "Đã giao hôm nay", value: summary.assignedToday },
     { label: "Đang xử lý", value: summary.active },
   ];
 
@@ -191,7 +191,7 @@ function OutreacherSummaryStrip({ summary }: { summary: OutreacherSummary | null
 
   const items = [
     {
-      label: "Được assign",
+      label: "Được giao",
       value: summary.totalAssigned,
       detail: `+${summary.assignedToday} hôm nay`,
       color: "#7C3AED",
@@ -199,7 +199,7 @@ function OutreacherSummaryStrip({ summary }: { summary: OutreacherSummary | null
     {
       label: "Đã gửi DM",
       value: summary.sentCount,
-      detail: `${pct(summary.sentCount, summary.totalAssigned)} tổng assign`,
+      detail: `${pct(summary.sentCount, summary.totalAssigned)} tổng được giao`,
       color: "var(--color-text-primary, var(--color-text))",
     },
     {
@@ -209,21 +209,21 @@ function OutreacherSummaryStrip({ summary }: { summary: OutreacherSummary | null
       color: "var(--color-text-primary, var(--color-text))",
     },
     {
-      label: "Hot",
+      label: "Quan tâm cao",
       value: summary.hotCount,
       detail: summary.hotCount > 0 ? "follow up ngay" : "chưa có",
       color: "#D97706",
     },
     {
-      label: "Replied",
+      label: "Đã phản hồi",
       value: summary.repliedCount,
-      detail: summary.repliedCount > 0 ? "đang conversation" : "chưa có",
+      detail: summary.repliedCount > 0 ? "đang trao đổi" : "chưa có",
       color: "#059669",
     },
     {
-      label: "Converted",
+      label: "Đã chuyển đổi",
       value: summary.convertedCount,
-      detail: "all-time",
+      detail: "tất cả",
       color: "#7C3AED",
     },
   ];
@@ -353,7 +353,7 @@ export function KanbanBoard({
                         onClick={() => onViewMore(stage)}
                         className="w-full rounded-md border border-border px-3 py-2 text-center text-xs font-medium text-muted transition-colors hover:bg-surface-muted hover:text-text"
                       >
-                        + {hidden} more
+                        + {hidden} thêm
                       </button>
                     ) : null}
                   </div>
