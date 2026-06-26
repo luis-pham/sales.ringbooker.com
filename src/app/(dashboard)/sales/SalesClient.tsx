@@ -113,14 +113,14 @@ export function SalesClient({ role }: { role: UserRole }) {
 
   const tabs: Array<{ id: Tab; label: string; icon: ElementType }> = isAdmin
     ? [
-        { id: "pipeline", label: "Pipeline", icon: BarChart3 },
         { id: "my-day", label: "My Day", icon: Inbox },
+        { id: "pipeline", label: "Pipeline", icon: BarChart3 },
         { id: "all-leads", label: "All Leads", icon: List },
       ]
     : [
         { id: "my-day", label: "My Day", icon: Inbox },
-        { id: "all-leads", label: "All Leads", icon: List },
         { id: "pipeline", label: "Pipeline", icon: BarChart3 },
+        { id: "all-leads", label: "All Leads", icon: List },
       ];
 
   return (
@@ -152,6 +152,7 @@ export function SalesClient({ role }: { role: UserRole }) {
           onSelectLead={setSelectedLead}
           onViewMore={handleViewMore}
           reloadSignal={reloadSignal}
+          isAdmin={isAdmin}
         />
       )}
 

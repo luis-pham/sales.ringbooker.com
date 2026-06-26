@@ -5,6 +5,7 @@ import { enforceRateLimit } from "@/lib/utils/security";
 import type { LeadStage, PipelineLead, Profile } from "@/types";
 
 const STAGES: LeadStage[] = ["ready", "sent", "viewed", "hot", "replied", "converted"];
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 const LEAD_SELECT = `
   id,
@@ -34,6 +35,16 @@ type KanbanLead = PipelineLead & {
   updated_at: string;
   assignedRepName?: string | null;
 };
+
+function vnNow() {
+  return new Date(Date.now() - VN_OFFSET_MS * -1);
+}
+
+function startOfTodayVnIso() {
+  const shifted = vnNow();
+  shifted.setUTCHours(0, 0, 0, 0);
+  return new Date(shifted.getTime() - VN_OFFSET_MS).toISOString();
+}
 
 function toLeadStage(raw: string | null): LeadStage {
   const valid: LeadStage[] = [
@@ -85,6 +96,7 @@ function toKanbanLead(row: any, isAdmin: boolean): KanbanLead {
 
 function scopedQuery(query: any, profile: Profile, stage: LeadStage) {
   let q = query.eq("sales_stage", stage).eq("status", "outreach_ready");
+  if (stage === "ready") q = q.not("assigned_to", "is", null);
   if (profile.role !== "admin") q = q.eq("assigned_to", profile.id);
   return q;
 }
@@ -117,6 +129,40 @@ async function getStage(profile: Profile, stage: LeadStage) {
   };
 }
 
+async function getOutreacherSummary(profile: Profile) {
+  const db = createAdminClient();
+  const todayStart = startOfTodayVnIso();
+
+  const [totalAssigned, assignedToday, sentCount, viewedCount] = await Promise.all([
+    db.from("salon_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_to", profile.id)
+      .eq("status", "outreach_ready"),
+    db.from("salon_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_to", profile.id)
+      .eq("status", "outreach_ready")
+      .gte("assigned_at", todayStart),
+    db.from("salon_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_to", profile.id)
+      .eq("status", "outreach_ready")
+      .neq("sales_stage", "ready"),
+    db.from("salon_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_to", profile.id)
+      .eq("status", "outreach_ready")
+      .in("sales_stage", ["viewed", "hot"]),
+  ]);
+
+  return {
+    totalAssigned: totalAssigned.count ?? 0,
+    assignedToday: assignedToday.count ?? 0,
+    sentCount: sentCount.count ?? 0,
+    viewedCount: viewedCount.count ?? 0,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const limited = enforceRateLimit(request, { key: "sales:kanban", limit: 60, windowMs: 60_000 });
   if (limited) return limited;
@@ -124,11 +170,26 @@ export async function GET(request: NextRequest) {
   const { profile } = await getSessionUser();
   if (!profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const groups = await Promise.all(STAGES.map((stage) => getStage(profile, stage)));
+  const groupPromises = STAGES.map((stage) => getStage(profile, stage));
+  const [groups, summary] = profile.role === "admin"
+    ? [await Promise.all(groupPromises), null]
+    : await Promise.all([
+      Promise.all(groupPromises),
+      getOutreacherSummary(profile),
+    ]);
   const data = STAGES.reduce<Record<string, (typeof groups)[number]>>((acc, stage, index) => {
     acc[stage] = groups[index];
     return acc;
   }, {});
+
+  if (summary) {
+    data.summary = {
+      ...summary,
+      hotCount: data.hot?.count ?? 0,
+      repliedCount: data.replied?.count ?? 0,
+      convertedCount: data.converted?.count ?? 0,
+    } as any;
+  }
 
   return NextResponse.json({ data });
 }

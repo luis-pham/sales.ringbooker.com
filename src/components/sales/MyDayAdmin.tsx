@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { StageBadge } from "./StageBadge";
 import type { LeadStage, PipelineLead } from "@/types";
@@ -9,6 +10,7 @@ type MyDayLead = PipelineLead & {
   city?: string | null;
   state?: string | null;
   sales_stage?: LeadStage;
+  demo: (NonNullable<PipelineLead["demo"]> & { status?: string | null }) | null;
   daysSinceLastAction?: number | null;
 };
 
@@ -34,31 +36,47 @@ const EMPTY_DATA: MyDayData = {
 function LeadRow({
   lead,
   urgent,
+  showDemoLink,
   onSelectLead,
 }: {
   lead: MyDayLead;
   urgent?: boolean;
+  showDemoLink?: boolean;
   onSelectLead: (lead: PipelineLead) => void;
 }) {
+  const demoSlug = lead.demo?.slug;
+
   return (
-    <button
-      type="button"
-      onClick={() => onSelectLead(lead)}
-      className="w-full rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-surface-muted"
-    >
+    <div className="rounded-md border border-border bg-background p-3 transition-colors hover:bg-surface-muted">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <button
+          type="button"
+          onClick={() => onSelectLead(lead)}
+          className="min-w-0 flex-1 text-left"
+        >
           <div className="truncate text-sm font-semibold text-text">{lead.name}</div>
           <div className="mt-0.5 truncate text-xs text-muted">{lead.location}</div>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {showDemoLink && demoSlug ? (
+            <button
+              type="button"
+              onClick={() => window.open(`https://ringbooker.com/try/${demoSlug}`, "_blank", "noopener,noreferrer")}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-violet-300 hover:text-violet-700"
+            >
+              <ExternalLink className="h-3 w-3" />
+              <span>👁 Xem demo</span>
+            </button>
+          ) : null}
+          <StageBadge stage={lead.stage} />
         </div>
-        <StageBadge stage={lead.stage} />
       </div>
       {urgent && lead.daysSinceLastAction != null ? (
         <div className="mt-2 text-xs font-medium text-red-600">
           {lead.daysSinceLastAction} days without action
         </div>
       ) : null}
-    </button>
+    </div>
   );
 }
 
@@ -99,7 +117,7 @@ function GroupSection({
               disabled={buildingDemos}
               className="rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
             >
-              {buildingDemos ? "Building..." : "⚡ Build demos"}
+              {buildingDemos ? "Đang tính toán..." : "⚡ Build demos"}
             </button>
           ) : null}
           <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-text">
@@ -129,6 +147,7 @@ function GroupSection({
                 key={lead.id}
                 lead={lead}
                 urgent={id === "urgent"}
+                showDemoLink={id === "readyToAssign"}
                 onSelectLead={onSelectLead}
               />
             ))
@@ -185,16 +204,9 @@ export function MyDayAdmin({
   }
 
   async function buildDemos() {
-    const leadIds = data.waitingDemo.leads.map((lead) => lead.id).slice(0, 50);
-    if (leadIds.length === 0) return;
-
     setBuildingDemos(true);
     try {
-      const res = await fetch("/api/demos/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadIds }),
-      });
+      const res = await fetch("/api/demos/build-pool", { method: "POST" });
       const json = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -202,16 +214,20 @@ export function MyDayAdmin({
         return;
       }
 
-      const failed = (json?.data ?? []).filter((item: { error?: string }) => item.error).length;
-      if (failed > 0) {
-        toast.error(`Failed to build ${failed} demos`);
-      } else if (data.waitingDemo.leads.length > 50) {
+      if (json?.status === "sufficient") {
         toast.success(
-          `Built demos for first 50 leads. Run again for remaining ${data.waitingDemo.leads.length - 50} leads.`,
+          `✅ Pool đã đủ demo cho hôm nay (${json.preparedUnassigned ?? 0} demos sẵn sàng)`,
         );
+      } else if (json?.status === "queued") {
+        toast.success(`⚡ Đã queue ${json.queued ?? 0} demos để tạo. Worker sẽ xử lý trong vài phút.`);
+        window.setTimeout(() => {
+          load();
+        }, 3000);
+      } else if (json?.status === "no_leads") {
+        toast.info("Không có lead đủ điều kiện");
+      } else {
+        toast.error("Failed to build demos");
       }
-
-      await load();
     } catch {
       toast.error("Failed to build demos");
     } finally {

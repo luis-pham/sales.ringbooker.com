@@ -19,11 +19,11 @@ const LEAD_SELECT = `
   created_at,
   instagram_url,
   facebook_url,
-  ringbooker_demos ( id, demo_slug, view_count, last_viewed_at ),
+  ringbooker_demos ( id, demo_slug, view_count, last_viewed_at, status ),
   outreach_events ( created_at, created_by )
 `;
 
-type SalesLeadItem = PipelineLead & {
+type SalesLeadItem = Omit<PipelineLead, "demo"> & {
   city: string | null;
   state: string | null;
   sales_stage: LeadStage;
@@ -31,6 +31,7 @@ type SalesLeadItem = PipelineLead & {
   updated_at: string;
   instagram_url: string | null;
   facebook_url: string | null;
+  demo: (NonNullable<PipelineLead["demo"]> & { status: string | null }) | null;
   lastActionAt: string | null;
   daysSinceLastAction: number | null;
 };
@@ -97,6 +98,7 @@ function toSalesLead(row: any): SalesLeadItem {
           plays: demo.view_count ?? 0,
           pct: 0,
           lastSeen: demo.last_viewed_at ?? null,
+          status: demo.status ?? null,
           sessions: [],
         }
       : null,
@@ -245,7 +247,7 @@ export async function GET(request: NextRequest) {
             .eq("sales_stage", "ready")
             .is("assigned_to", null)
             .in("id", preparedDemoIds)
-            .limit(5),
+            .limit(8),
         ),
       );
 
@@ -269,7 +271,7 @@ export async function GET(request: NextRequest) {
       waitingDemoLeadsQuery = waitingDemoLeadsQuery.not("id", "in", preparedDemoIdList);
     }
 
-    const waitingDemoLeads = withLeadShape(waitingDemoLeadsQuery.limit(5));
+    const waitingDemoLeads = withLeadShape(waitingDemoLeadsQuery.limit(8));
 
     const [
       urgentGroup,
