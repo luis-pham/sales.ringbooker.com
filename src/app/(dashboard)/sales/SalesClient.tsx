@@ -1,35 +1,24 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { KanbanSquare, List, Inbox } from "lucide-react";
+import { useEffect, useState, type ElementType } from "react";
+import { BarChart3, Inbox, List } from "lucide-react";
+import { KanbanBoard } from "@/components/sales/KanbanBoard";
 import { LeadTable } from "@/components/sales/LeadTable";
-import { useLeads } from "@/hooks/useLeads";
-import { getNextAction } from "@/lib/getNextAction";
-import type { PipelineLead, LeadStage, TimelineEvent, UserRole } from "@/types";
-
-// Inline mini-kanban to avoid breaking existing PipelineClient
+import { MyDayAdmin } from "@/components/sales/MyDayAdmin";
+import { MyDayOutreacher } from "@/components/sales/MyDayOutreacher";
 import { STAGE_META, STAGE_ORDER } from "@/lib/stageConfig";
-import { StageBadge } from "@/components/sales/StageBadge";
-
-const LeadInbox = dynamic(() => import("@/components/sales/LeadInbox").then((mod) => mod.LeadInbox), {
-  ssr: false,
-  loading: () => null,
-});
+import type { LeadStage, PipelineLead, Profile, TimelineEvent, UserRole } from "@/types";
 
 const LeadPanel = dynamic(() => import("@/components/sales/LeadPanel").then((mod) => mod.LeadPanel), {
   ssr: false,
   loading: () => null,
 });
 
-type Tab = "today" | "all" | "kanban";
-
-const KANBAN_STAGES: LeadStage[] = ["ready", "sent", "viewed", "hot", "replied", "converted"];
-
+type Tab = "pipeline" | "my-day" | "all-leads";
 type SalesStats = { byStage: Record<string, number>; total: number };
+type TeamProfile = Pick<Profile, "id" | "email" | "full_name" | "role" | "is_active">;
 
-/** Compact per-stage count strip — admin's at-a-glance pipeline summary.
- *  Counts come from /api/sales/stats (whole table), not the 200-row CRM fetch. */
 function SummaryStrip({ stats }: { stats: SalesStats | null }) {
   if (!stats) return null;
 
@@ -52,69 +41,16 @@ function SummaryStrip({ stats }: { stats: SalesStats | null }) {
   );
 }
 
-const KANBAN_CARD_LIMIT = 8;
-
-function MiniKanban({
-  leads,
-  stats,
-  onSelect,
-}: {
-  leads: PipelineLead[];
-  stats: SalesStats | null;
-  onSelect: (l: PipelineLead) => void;
-}) {
-  return (
-    <div className="grid gap-3 lg:grid-cols-6 md:grid-cols-3 grid-cols-2">
-      {KANBAN_STAGES.map((stage) => {
-        const rows = leads.filter((l) => l.stage === stage);
-        const meta = STAGE_META[stage];
-        // Real whole-table count (falls back to the in-view count until stats load).
-        const realCount = stats ? stats.byStage[stage] ?? 0 : rows.length;
-        const shown = rows.slice(0, KANBAN_CARD_LIMIT);
-        const hidden = realCount - shown.length;
-        return (
-          <div key={stage} className="rounded-lg border border-border bg-surface">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <span className="text-xs font-semibold text-muted uppercase tracking-wide">
-                {meta.label}
-              </span>
-              <span className="text-xs font-medium text-text">{realCount}</span>
-            </div>
-            <div className="space-y-2 p-2">
-              {shown.map((lead) => (
-                <button
-                  key={lead.id}
-                  onClick={() => onSelect(lead)}
-                  className="w-full rounded border border-border p-2 text-left hover:bg-surface-muted transition-colors"
-                >
-                  <div className="text-xs font-medium text-text truncate">{lead.name}</div>
-                  <div className="mt-0.5 text-xs text-muted truncate">{lead.location}</div>
-                </button>
-              ))}
-              {shown.length === 0 && (
-                <div className="py-2 text-center text-xs text-muted">Empty</div>
-              )}
-              {hidden > 0 && (
-                <div className="py-1 text-center text-xs text-muted">+{hidden} more</div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export function SalesClient({ role }: { role: UserRole }) {
   const isAdmin = role === "admin";
-  const { leads, isLoading, updateLeadStage, addTimelineEvent, refetch } = useLeads();
-  // Admin lands on the pipeline overview (Kanban); reps land on their action queue.
-  const [tab, setTab] = useState<Tab>(isAdmin ? "kanban" : "today");
-  const [activePanel, setActivePanel] = useState<PipelineLead | null>(null);
+  const [tab, setTab] = useState<Tab>(isAdmin ? "pipeline" : "my-day");
+  const [selectedLead, setSelectedLead] = useState<PipelineLead | null>(null);
   const [reloadSignal, setReloadSignal] = useState(0);
   const [stats, setStats] = useState<SalesStats | null>(null);
+  const [team, setTeam] = useState<TeamProfile[]>([]);
+  const [assignee, setAssignee] = useState("all");
+  const [allLeadsStage, setAllLeadsStage] = useState<LeadStage | "all">("all");
 
-  // Whole-table per-stage counts for the summary strip + Kanban headers.
   useEffect(() => {
     fetch("/api/sales/stats")
       .then((r) => (r.ok ? r.json() : null))
@@ -122,52 +58,83 @@ export function SalesClient({ role }: { role: UserRole }) {
       .catch(() => null);
   }, [reloadSignal]);
 
-  const urgentCount = leads.filter(
-    (l) => l.stage !== "converted" && l.stage !== "churned"
-      && getNextAction(l).urgency === "urgent",
-  ).length;
-
-  function openPanel(lead: PipelineLead) {
-    setActivePanel(lead);
-    if (tab === "today") setTab("all");
-  }
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/team")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const profiles: TeamProfile[] = j?.data?.profiles ?? [];
+        setTeam(profiles.filter((p) => p.role === "outreacher" && p.is_active));
+      })
+      .catch(() => null);
+  }, [isAdmin]);
 
   async function handleUpdateStage(id: string, stage: LeadStage) {
-    await updateLeadStage(id, stage);
-    if (activePanel?.id === id) {
-      setActivePanel((prev) => prev ? { ...prev, stage } : null);
-    }
-    setReloadSignal((n) => n + 1); // refresh All Leads table + summary strip
+    const res = await fetch(`/api/leads/${id}/stage`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage }),
+    });
+    if (!res.ok) return;
+    setSelectedLead((prev) => (prev?.id === id ? { ...prev, stage } : prev));
+    setReloadSignal((n) => n + 1);
   }
 
   async function handleAddNote(id: string, type: TimelineEvent["type"], text: string) {
-    await addTimelineEvent(id, type, text);
+    const res = await fetch(`/api/leads/${id}/timeline`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, text }),
+    });
+    if (!res.ok) return;
+    const json = (await res.json()) as { data: { id: string; created_at: string } };
+    setSelectedLead((prev) =>
+      prev?.id === id
+        ? {
+            ...prev,
+            timeline: [
+              ...prev.timeline,
+              { id: json.data.id, type, text, date: json.data.created_at },
+            ],
+          }
+        : prev,
+    );
   }
 
-  // Called after an evidence-gated step (DM/reply) already changed things server-side.
   function handleChanged(stage: LeadStage) {
-    if (activePanel) setActivePanel((prev) => (prev ? { ...prev, stage } : null));
+    setSelectedLead((prev) => (prev ? { ...prev, stage } : prev));
     setReloadSignal((n) => n + 1);
-    refetch();
   }
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ElementType; badge?: number }> = [
-    { id: "today",  label: "My Day",    icon: Inbox,        badge: urgentCount || undefined },
-    { id: "all",    label: "All Leads", icon: List },
-    { id: "kanban", label: "Kanban",    icon: KanbanSquare },
-  ];
+  function handleViewMore(stage: LeadStage) {
+    setAllLeadsStage(stage);
+    setTab("all-leads");
+  }
+
+  const tabs: Array<{ id: Tab; label: string; icon: ElementType }> = isAdmin
+    ? [
+        { id: "pipeline", label: "Pipeline", icon: BarChart3 },
+        { id: "my-day", label: "My Day", icon: Inbox },
+        { id: "all-leads", label: "All Leads", icon: List },
+      ]
+    : [
+        { id: "my-day", label: "My Day", icon: Inbox },
+        { id: "all-leads", label: "All Leads", icon: List },
+        { id: "pipeline", label: "Pipeline", icon: BarChart3 },
+      ];
 
   return (
     <div className="space-y-5">
-      {/* Admin pipeline summary */}
       {isAdmin && <SummaryStrip stats={stats} />}
 
-      {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-border">
-        {tabs.map(({ id, label, icon: Icon, badge }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            onClick={() => {
+              if (id === "all-leads") setAllLeadsStage("all");
+              setTab(id);
+            }}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
               tab === id
                 ? "border-violet-600 text-violet-700"
@@ -176,44 +143,58 @@ export function SalesClient({ role }: { role: UserRole }) {
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
-            {badge ? (
-              <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white leading-none">
-                {badge}
-              </span>
-            ) : null}
           </button>
         ))}
       </div>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 w-full animate-pulse rounded-lg bg-surface-muted" />
-          ))}
+      {tab === "pipeline" && (
+        <KanbanBoard
+          onSelectLead={setSelectedLead}
+          onViewMore={handleViewMore}
+          reloadSignal={reloadSignal}
+        />
+      )}
+
+      {tab === "my-day" && (
+        isAdmin ? (
+          <MyDayAdmin onSelectLead={setSelectedLead} reloadSignal={reloadSignal} />
+        ) : (
+          <MyDayOutreacher onSelectLead={setSelectedLead} reloadSignal={reloadSignal} />
+        )
+      )}
+
+      {tab === "all-leads" && (
+        <div className="space-y-3">
+          {isAdmin ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Assignee</span>
+              <select
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                className="h-9 rounded-md border border-border bg-surface px-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-violet-300 dark:focus:ring-violet-700"
+              >
+                <option value="all">All outreachers</option>
+                {team.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.full_name || member.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <LeadTable
+            onSelectLead={setSelectedLead}
+            reloadSignal={reloadSignal}
+            assignee={isAdmin && assignee !== "all" ? assignee : undefined}
+            initialStageFilter={allLeadsStage}
+          />
         </div>
       )}
 
-      {/* Tab content */}
-      {!isLoading && (
-        <>
-          {tab === "today" && (
-            <LeadInbox leads={leads} onSelectLead={openPanel} showQuota={!isAdmin} />
-          )}
-          {tab === "all" && (
-            <LeadTable onSelectLead={setActivePanel} reloadSignal={reloadSignal} />
-          )}
-          {tab === "kanban" && (
-            <MiniKanban leads={leads} stats={stats} onSelect={setActivePanel} />
-          )}
-        </>
-      )}
-
-      {/* Side panel */}
-      {activePanel && (
+      {selectedLead && (
         <LeadPanel
-          lead={activePanel}
-          onClose={() => setActivePanel(null)}
+          lead={selectedLead}
+          onClose={() => setSelectedLead(null)}
           onUpdateStage={handleUpdateStage}
           onAddNote={handleAddNote}
           onChanged={handleChanged}

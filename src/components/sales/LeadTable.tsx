@@ -33,14 +33,18 @@ function DemoDot({ plays, pct }: { plays: number; pct: number }) {
 export function LeadTable({
   onSelectLead,
   reloadSignal = 0,
+  assignee,
+  initialStageFilter = "all",
 }: {
   onSelectLead: (lead: PipelineLead) => void;
   reloadSignal?: number;
+  assignee?: string;
+  initialStageFilter?: LeadStage | "all";
 }) {
   const [leads, setLeads] = useState<PipelineLead[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [stageFilter, setStageFilter] = useState<LeadStage | "all">("all");
+  const [stageFilter, setStageFilter] = useState<LeadStage | "all">(initialStageFilter);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [loading, setLoading] = useState(true);
@@ -55,7 +59,11 @@ export function LeadTable({
   }, [search]);
 
   // Reset to page 1 when filters change.
-  useEffect(() => { setPage(1); }, [stageFilter, debounced]);
+  useEffect(() => { setPage(1); }, [stageFilter, debounced, assignee]);
+
+  useEffect(() => {
+    setStageFilter(initialStageFilter);
+  }, [initialStageFilter]);
 
   // Fetch.
   useEffect(() => {
@@ -64,6 +72,7 @@ export function LeadTable({
     const params = new URLSearchParams({ page: String(page), per_page: String(PER_PAGE) });
     if (stageFilter !== "all") params.set("stage", stageFilter);
     if (debounced) params.set("q", debounced);
+    if (assignee) params.set("assignee", assignee);
 
     fetch(`/api/sales/leads?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : { data: [], total: 0 }))
@@ -76,7 +85,7 @@ export function LeadTable({
       .finally(() => !cancelled && setLoading(false));
 
     return () => { cancelled = true; };
-  }, [page, stageFilter, debounced, reloadSignal, localReload]);
+  }, [page, stageFilter, debounced, assignee, reloadSignal, localReload]);
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 

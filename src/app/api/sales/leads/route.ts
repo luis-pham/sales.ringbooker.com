@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
   const paginated = pageParam != null;
   const stage = searchParams.get("stage");
   const q = searchParams.get("q");
+  const assignee = searchParams.get("assignee");
 
   const adminClient = createAdminClient();
 
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
   query = query.order("created_at", { referencedTable: "outreach_events", ascending: false }).limit(5, { referencedTable: "outreach_events" });
 
   if (profile.role !== "admin") query = query.eq("assigned_to", profile.id);
+  if (profile.role === "admin" && assignee) query = query.eq("assigned_to", assignee);
   if (stage && stage !== "all") query = query.eq("sales_stage", stage);
   if (q) query = query.ilike("name", `%${q}%`);
 

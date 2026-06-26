@@ -120,7 +120,7 @@ async function getOverviewData() {
   const [{ data: members }, { data: teamStats }] = await Promise.all([
     db.from("profiles")
       .select("id, full_name, email")
-      .in("role", ["admin", "outreacher"])
+      .eq("role", "outreacher")
       .eq("is_active", true),
     db.rpc("get_team_stats", { p_week_ago: weekAgo }),
   ]);
