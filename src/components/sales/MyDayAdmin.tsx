@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { StageBadge } from "./StageBadge";
 import type { LeadStage, PipelineLead } from "@/types";
 
@@ -54,7 +55,7 @@ function LeadRow({
       </div>
       {urgent && lead.daysSinceLastAction != null ? (
         <div className="mt-2 text-xs font-medium text-red-600">
-          {lead.daysSinceLastAction} ngày chưa có action
+          {lead.daysSinceLastAction} days without action
         </div>
       ) : null}
     </button>
@@ -67,31 +68,45 @@ function GroupSection({
   group,
   open,
   running,
+  buildingDemos,
   onToggle,
   onSelectLead,
   onRunNow,
+  onBuildDemos,
 }: {
   id: keyof MyDayData;
   label: string;
   group: Group;
   open: boolean;
   running?: boolean;
+  buildingDemos?: boolean;
   onToggle: () => void;
   onSelectLead: (lead: PipelineLead) => void;
   onRunNow?: () => void;
+  onBuildDemos?: () => void;
 }) {
   return (
     <section className="rounded-lg border border-border bg-surface">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <span className="text-sm font-semibold text-text">{label}</span>
-        <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-text">
-          {group.count}
-        </span>
-      </button>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
+          <span className="text-sm font-semibold text-text">{label}</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {id === "waitingDemo" && group.count > 0 ? (
+            <button
+              type="button"
+              onClick={onBuildDemos}
+              disabled={buildingDemos}
+              className="rounded-md bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
+            >
+              {buildingDemos ? "Building..." : "⚡ Build demos"}
+            </button>
+          ) : null}
+          <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-text">
+            {group.count}
+          </span>
+        </div>
+      </div>
       {open ? (
         <div className="space-y-2 border-t border-border p-3">
           {id === "readyToAssign" ? (
@@ -134,6 +149,7 @@ export function MyDayAdmin({
   const [data, setData] = useState<MyDayData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [buildingDemos, setBuildingDemos] = useState(false);
   const [open, setOpen] = useState<Record<keyof MyDayData, boolean>>({
     urgent: false,
     assignedToday: false,
@@ -168,6 +184,41 @@ export function MyDayAdmin({
     }
   }
 
+  async function buildDemos() {
+    const leadIds = data.waitingDemo.leads.map((lead) => lead.id).slice(0, 50);
+    if (leadIds.length === 0) return;
+
+    setBuildingDemos(true);
+    try {
+      const res = await fetch("/api/demos/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadIds }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        toast.error(json?.error ?? "Failed to build demos");
+        return;
+      }
+
+      const failed = (json?.data ?? []).filter((item: { error?: string }) => item.error).length;
+      if (failed > 0) {
+        toast.error(`Failed to build ${failed} demos`);
+      } else if (data.waitingDemo.leads.length > 50) {
+        toast.success(
+          `Built demos for first 50 leads. Run again for remaining ${data.waitingDemo.leads.length - 50} leads.`,
+        );
+      }
+
+      await load();
+    } catch {
+      toast.error("Failed to build demos");
+    } finally {
+      setBuildingDemos(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -182,7 +233,7 @@ export function MyDayAdmin({
     <div className="space-y-3">
       <GroupSection
         id="urgent"
-        label="🔴 Cần xử lý ngay"
+        label="🔴 Needs attention"
         group={data.urgent}
         open={open.urgent}
         onToggle={() => setOpen((prev) => ({ ...prev, urgent: !prev.urgent }))}
@@ -190,7 +241,7 @@ export function MyDayAdmin({
       />
       <GroupSection
         id="assignedToday"
-        label="🟡 Assigned hôm nay"
+        label="🟡 Assigned today"
         group={data.assignedToday}
         open={open.assignedToday}
         onToggle={() => setOpen((prev) => ({ ...prev, assignedToday: !prev.assignedToday }))}
@@ -198,7 +249,7 @@ export function MyDayAdmin({
       />
       <GroupSection
         id="readyToAssign"
-        label="🟢 Sẵn sàng assign"
+        label="🟢 Ready to assign"
         group={data.readyToAssign}
         open={open.readyToAssign}
         running={running}
@@ -208,11 +259,13 @@ export function MyDayAdmin({
       />
       <GroupSection
         id="waitingDemo"
-        label="⚪ Chờ demo"
+        label="⚪ Waiting for demo"
         group={data.waitingDemo}
         open={open.waitingDemo}
+        buildingDemos={buildingDemos}
         onToggle={() => setOpen((prev) => ({ ...prev, waitingDemo: !prev.waitingDemo }))}
         onSelectLead={onSelectLead}
+        onBuildDemos={buildDemos}
       />
     </div>
   );

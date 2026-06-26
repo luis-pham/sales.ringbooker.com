@@ -86,15 +86,15 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
       {/* QA gate — verify demo quality before sending */}
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
         <div className="mb-1.5 text-xs font-medium text-amber-800 dark:text-amber-400">
-          Kiểm tra chất lượng demo (bắt buộc) — bạn sẽ gửi link này ở tin reveal sau khi họ trả lời
+          Demo quality check (required) - you will send this link in the reveal after they reply
         </div>
         {demoUrl ? (
           <a href={demoUrl} target="_blank" rel="noopener noreferrer"
              className="block truncate text-xs text-violet-700 hover:underline dark:text-violet-400">
-            Mở demo: {demoUrl}
+            Open demo: {demoUrl}
           </a>
         ) : (
-          <p className="text-xs text-muted">Chưa có demo cho lead này.</p>
+          <p className="text-xs text-muted">No demo for this lead yet.</p>
         )}
         <label className="mt-2 flex items-center gap-2 text-xs text-text">
           <input
@@ -104,7 +104,7 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
             onChange={(e) => handleQaToggle(e.target.checked)}
             className="h-3.5 w-3.5"
           />
-          {qaSaving ? "Đang lưu…" : "Tôi đã xem demo và demo đạt chất lượng"}
+          {qaSaving ? "Saving..." : "I reviewed the demo and it meets quality standards"}
         </label>
       </div>
 

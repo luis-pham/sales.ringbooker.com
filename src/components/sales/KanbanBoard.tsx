@@ -30,8 +30,9 @@ const EMPTY_DATA = STAGES.reduce((acc, stage) => {
 function daysAgo(iso: string | undefined) {
   if (!iso) return "N/A";
   const diff = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
-  if (diff === 0) return "hôm nay";
-  return `${diff} ngày trước`;
+  if (diff === 0) return "today";
+  if (diff === 1) return "1 day ago";
+  return `${diff} days ago`;
 }
 
 function LeadCard({

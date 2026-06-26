@@ -42,7 +42,7 @@ function QuotaBar({ quota }: { quota: Quota | null }) {
     <div className="rounded-lg border border-border bg-surface px-4 py-3">
       <div className="mb-2 flex items-center justify-between text-xs font-semibold text-muted">
         <span>Quota</span>
-        <span className="text-text">{sent}/{target} DMs hôm nay</span>
+        <span className="text-text">{sent}/{target} DMs today</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
         <div className="h-full rounded-full bg-violet-600" style={{ width: `${pct}%` }} />
@@ -75,7 +75,7 @@ function LeadRow({
       </div>
       {urgent && lead.daysSinceLastAction != null ? (
         <div className="mt-2 text-xs font-medium text-red-600">
-          {lead.daysSinceLastAction} ngày chưa có action
+          {lead.daysSinceLastAction} days without action
         </div>
       ) : null}
     </button>
@@ -193,7 +193,7 @@ export function MyDayOutreacher({
       <QuotaBar quota={quota} />
       <GroupSection
         id="doNow"
-        label="🔴 Làm ngay"
+        label="🔴 Do now"
         group={data.doNow}
         open={open.doNow}
         onToggle={() => setOpen((prev) => ({ ...prev, doNow: !prev.doNow }))}
@@ -209,7 +209,7 @@ export function MyDayOutreacher({
       />
       <GroupSection
         id="newDMs"
-        label="🟢 Gửi DM mới"
+        label="🟢 Send new DMs"
         group={data.newDMs}
         open={open.newDMs}
         onToggle={() => setOpen((prev) => ({ ...prev, newDMs: !prev.newDMs }))}
