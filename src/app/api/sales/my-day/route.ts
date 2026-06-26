@@ -113,16 +113,45 @@ function recentActionByRepSubquery(repId: string, thresholdIso?: string) {
   return `(select lead_id from outreach_events where created_by = '${repId}'${threshold})`;
 }
 
-function recentActionByAssignedRepSubquery(thresholdIso: string) {
-  return (
-    "(select outreach_events.lead_id from outreach_events " +
-    "join salon_leads on salon_leads.id = outreach_events.lead_id " +
-    `where outreach_events.created_by = salon_leads.assigned_to and outreach_events.created_at >= '${thresholdIso}')`
-  );
+function toPostgrestInList(ids: string[]) {
+  return `(${ids.join(",")})`;
 }
 
-function preparedDemoSubquery() {
-  return "(select lead_id from ringbooker_demos where status = 'prepared')";
+async function getPreparedDemoLeadIds(db: any): Promise<string[]> {
+  const { data } = await db
+    .from("ringbooker_demos")
+    .select("lead_id")
+    .eq("status", "prepared");
+
+  return (data ?? []).map((r: any) => r.lead_id as string);
+}
+
+async function getUrgentLeadIds(db: any, thresholdIso: string): Promise<string[]> {
+  const { data: candidates } = await db
+    .from("salon_leads")
+    .select("id, assigned_to")
+    .eq("status", "outreach_ready")
+    .in("sales_stage", ["hot", "trial", "replied"])
+    .not("assigned_to", "is", null);
+
+  if (!candidates?.length) return [];
+
+  const { data: recentEvents } = await db
+    .from("outreach_events")
+    .select("lead_id, created_by")
+    .in("lead_id", candidates.map((c: any) => c.id))
+    .gte("created_at", thresholdIso);
+
+  const assignedMap = new Map(candidates.map((c: any) => [c.id, c.assigned_to]));
+  const recentSet = new Set(
+    (recentEvents ?? [])
+      .filter((e: any) => e.created_by === assignedMap.get(e.lead_id))
+      .map((e: any) => e.lead_id),
+  );
+
+  return candidates
+    .filter((c: any) => !recentSet.has(c.id))
+    .map((c: any) => c.id);
 }
 
 function withLeadShape(query: any, createdBy?: string) {
@@ -145,6 +174,10 @@ async function runGroup(countQuery: any, leadsQuery: any): Promise<Group> {
   };
 }
 
+function emptyGroup(): Group {
+  return { count: 0, leads: [] };
+}
+
 export async function GET(request: NextRequest) {
   const limited = enforceRateLimit(request, { key: "sales:my-day", limit: 60, windowMs: 60_000 });
   if (limited) return limited;
@@ -158,22 +191,30 @@ export async function GET(request: NextRequest) {
   const todayStart = startOfTodayVnIso();
 
   if (profile.role === "admin") {
-    const urgentCount = db.from("salon_leads")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "outreach_ready")
-      .in("sales_stage", ["hot", "trial", "replied"])
-      .not("assigned_to", "is", null)
-      .not("id", "in", recentActionByAssignedRepSubquery(oneDayAgo));
+    const [preparedDemoIds, urgentIds] = await Promise.all([
+      getPreparedDemoLeadIds(db),
+      getUrgentLeadIds(db, oneDayAgo),
+    ]);
 
-    const urgentLeads = withLeadShape(
-      db.from("salon_leads")
-        .select(LEAD_SELECT)
-        .eq("status", "outreach_ready")
-        .in("sales_stage", ["hot", "trial", "replied"])
-        .not("assigned_to", "is", null)
-        .not("id", "in", recentActionByAssignedRepSubquery(oneDayAgo))
-        .limit(5),
-    );
+    const urgent = urgentIds.length === 0
+      ? Promise.resolve(emptyGroup())
+      : runGroup(
+        db.from("salon_leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "outreach_ready")
+          .in("sales_stage", ["hot", "trial", "replied"])
+          .not("assigned_to", "is", null)
+          .in("id", urgentIds),
+        withLeadShape(
+          db.from("salon_leads")
+            .select(LEAD_SELECT)
+            .eq("status", "outreach_ready")
+            .in("sales_stage", ["hot", "trial", "replied"])
+            .not("assigned_to", "is", null)
+            .in("id", urgentIds)
+            .limit(5),
+        ),
+      );
 
     const assignedTodayCount = db.from("salon_leads")
       .select("id", { count: "exact", head: true })
@@ -188,55 +229,68 @@ export async function GET(request: NextRequest) {
         .limit(5),
     );
 
-    const readyToAssignCount = db.from("salon_leads")
+    const readyToAssign = preparedDemoIds.length === 0
+      ? Promise.resolve(emptyGroup())
+      : runGroup(
+        db.from("salon_leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "outreach_ready")
+          .eq("sales_stage", "ready")
+          .is("assigned_to", null)
+          .in("id", preparedDemoIds),
+        withLeadShape(
+          db.from("salon_leads")
+            .select(LEAD_SELECT)
+            .eq("status", "outreach_ready")
+            .eq("sales_stage", "ready")
+            .is("assigned_to", null)
+            .in("id", preparedDemoIds)
+            .limit(5),
+        ),
+      );
+
+    let waitingDemoCount = db.from("salon_leads")
       .select("id", { count: "exact", head: true })
       .eq("status", "outreach_ready")
       .eq("sales_stage", "ready")
-      .is("assigned_to", null)
-      .filter("id", "in", preparedDemoSubquery());
+      .eq("has_social", true)
+      .is("assigned_to", null);
 
-    const readyToAssignLeads = withLeadShape(
-      db.from("salon_leads")
-        .select(LEAD_SELECT)
-        .eq("status", "outreach_ready")
-        .eq("sales_stage", "ready")
-        .is("assigned_to", null)
-        .filter("id", "in", preparedDemoSubquery())
-        .limit(5),
-    );
-
-    const waitingDemoCount = db.from("salon_leads")
-      .select("id", { count: "exact", head: true })
+    let waitingDemoLeadsQuery = db.from("salon_leads")
+      .select(LEAD_SELECT)
       .eq("status", "outreach_ready")
       .eq("has_social", true)
       .eq("sales_stage", "ready")
-      .is("assigned_to", null)
-      .not("id", "in", preparedDemoSubquery());
+      .is("assigned_to", null);
 
-    const waitingDemoLeads = withLeadShape(
-      db.from("salon_leads")
-        .select(LEAD_SELECT)
-        .eq("status", "outreach_ready")
-        .eq("has_social", true)
-        .eq("sales_stage", "ready")
-        .is("assigned_to", null)
-        .not("id", "in", preparedDemoSubquery())
-        .limit(5),
-    );
+    if (preparedDemoIds.length > 0) {
+      const preparedDemoIdList = toPostgrestInList(preparedDemoIds);
+      waitingDemoCount = waitingDemoCount.not("id", "in", preparedDemoIdList);
+      waitingDemoLeadsQuery = waitingDemoLeadsQuery.not("id", "in", preparedDemoIdList);
+    }
+
+    const waitingDemoLeads = withLeadShape(waitingDemoLeadsQuery.limit(5));
 
     const [
-      urgent,
+      urgentGroup,
       assignedToday,
-      readyToAssign,
+      readyToAssignGroup,
       waitingDemo,
     ] = await Promise.all([
-      runGroup(urgentCount, urgentLeads),
+      urgent,
       runGroup(assignedTodayCount, assignedTodayLeads),
-      runGroup(readyToAssignCount, readyToAssignLeads),
+      readyToAssign,
       runGroup(waitingDemoCount, waitingDemoLeads),
     ]);
 
-    return NextResponse.json({ data: { urgent, assignedToday, readyToAssign, waitingDemo } });
+    return NextResponse.json({
+      data: {
+        urgent: urgentGroup,
+        assignedToday,
+        readyToAssign: readyToAssignGroup,
+        waitingDemo,
+      },
+    });
   }
 
   const doNowCount = db.from("salon_leads")
