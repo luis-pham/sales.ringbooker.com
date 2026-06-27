@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, CirclePause, CirclePlay, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { WorkerSettings } from "@/types";
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
@@ -57,6 +58,8 @@ type Props = {
   total: number;
   summary: { pending: number; processing: number; failed: number; dead: number };
   workerPaused: boolean;
+  pipelinePaused: boolean;
+  demoPaused: boolean;
   pausedBy: string | null;
   pausedAt: string | null;
   page: number;
@@ -66,16 +69,18 @@ type Props = {
 };
 
 export function JobsClient({
-  jobs, total, summary, workerPaused, pausedBy, pausedAt,
+  jobs, total, summary, workerPaused, pipelinePaused, demoPaused, pausedBy, pausedAt,
   page, perPage, statusFilter, typeFilter,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [paused, setPaused] = useState(workerPaused);
+  const [pipelineIsPaused, setPipelineIsPaused] = useState(pipelinePaused);
+  const [demoIsPaused, setDemoIsPaused] = useState(demoPaused);
   const [pausedByState, setPausedBy] = useState(pausedBy);
   const [pausedAtState, setPausedAt] = useState(pausedAt);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [toggling, setToggling] = useState(false);
+  const [togglingAction, setTogglingAction] = useState<string | null>(null);
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -88,21 +93,22 @@ export function JobsClient({
     router.push(`?${p.toString()}`);
   }
 
-  async function toggleWorker() {
-    setToggling(true);
-    const action = paused ? "resume" : "pause";
+  async function updateWorker(action: string) {
+    setTogglingAction(action);
     const res = await fetch("/api/jobs/pause", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    setToggling(false);
+    setTogglingAction(null);
     if (!res.ok) { toast.error("Cập nhật trạng thái tiến trình thất bại"); return; }
-    const json = await res.json() as { data: { is_paused: boolean; paused_by: string | null; paused_at: string | null } };
+    const json = await res.json() as { data: WorkerSettings };
     setPaused(json.data.is_paused);
+    setPipelineIsPaused(json.data.pipeline_paused);
+    setDemoIsPaused(json.data.demo_paused);
     setPausedBy(json.data.paused_by);
     setPausedAt(json.data.paused_at);
-    toast.success(json.data.is_paused ? "Tiến trình đang tạm dừng" : "Tiến trình đã tiếp tục");
+    toast.success("Đã cập nhật trạng thái tiến trình");
   }
 
   async function cancelJob(id: string) {
@@ -125,37 +131,94 @@ export function JobsClient({
         <p className="text-sm text-muted">Theo dõi và điều khiển hàng đợi tiến trình.</p>
       </div>
 
-      {/* Worker status banner */}
-      <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
-        paused
-          ? "border-warning/40 bg-warning/10"
-          : "border-success/40 bg-success/10"
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className={`h-2.5 w-2.5 rounded-full ${paused ? "bg-warning" : "bg-success animate-pulse"}`} />
-          <div>
-            <span className="text-sm font-medium text-text">
-              Tiến trình {paused ? "đang tạm dừng" : "đang chạy"}
-            </span>
-            {paused && pausedByState && (
-              <span className="ml-2 text-xs text-muted">
-                bởi {pausedByState}
-                {pausedAtState ? ` · ${new Date(pausedAtState).toLocaleString()}` : ""}
-              </span>
+      {/* Worker controls */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="text-sm font-semibold text-text">Toàn bộ tiến trình</div>
+          <div className="mt-1 text-xs text-muted">
+            {paused && pausedByState ? (
+              <>Tạm dừng bởi {pausedByState}{pausedAtState ? ` · ${new Date(pausedAtState).toLocaleString()}` : ""}</>
+            ) : (
+              "Điều khiển toàn bộ hàng đợi"
             )}
           </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => updateWorker("resume")}
+              disabled={!paused || togglingAction !== null}
+              className="gap-2"
+            >
+              <CirclePlay className="h-4 w-4 text-success" />
+              Tiếp tục tất cả
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => updateWorker("pause")}
+              disabled={paused || togglingAction !== null}
+              className="gap-2"
+            >
+              <CirclePause className="h-4 w-4 text-warning" />
+              Dừng tất cả
+            </Button>
+          </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={toggleWorker}
-          disabled={toggling}
-          className="gap-2"
-        >
-          {paused
-            ? <><CirclePlay className="h-4 w-4 text-success" /> Tiếp tục</>
-            : <><CirclePause className="h-4 w-4 text-warning" /> Tạm dừng</>
-          }
-        </Button>
+
+        <div className={`rounded-lg border border-border bg-surface p-4 ${paused ? "opacity-50" : ""}`}>
+          <div className="text-sm font-semibold text-text">Lead Pipeline</div>
+          <div className="mt-1 text-xs text-muted">Tìm kiếm, Làm giàu dữ liệu, Chấm điểm, Instagram</div>
+          <div className="mt-2 text-xs font-medium">
+            Status: {pipelineIsPaused || paused ? "🔴 Tạm dừng" : "🟢 Đang chạy"}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => updateWorker("resume_pipeline")}
+              disabled={paused || !pipelineIsPaused || togglingAction !== null}
+              className="gap-2"
+            >
+              <CirclePlay className="h-4 w-4 text-success" />
+              Tiếp tục
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => updateWorker("pause_pipeline")}
+              disabled={paused || pipelineIsPaused || togglingAction !== null}
+              className="gap-2"
+            >
+              <CirclePause className="h-4 w-4 text-warning" />
+              Tạm dừng
+            </Button>
+          </div>
+        </div>
+
+        <div className={`rounded-lg border border-border bg-surface p-4 ${paused ? "opacity-50" : ""}`}>
+          <div className="text-sm font-semibold text-text">Tạo Demo</div>
+          <div className="mt-1 text-xs text-muted">Auto create demo cho lead đủ điều kiện</div>
+          <div className="mt-2 text-xs font-medium">
+            Status: {demoIsPaused || paused ? "🔴 Tạm dừng" : "🟢 Đang chạy"}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => updateWorker("resume_demo")}
+              disabled={paused || !demoIsPaused || togglingAction !== null}
+              className="gap-2"
+            >
+              <CirclePlay className="h-4 w-4 text-success" />
+              Tiếp tục
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => updateWorker("pause_demo")}
+              disabled={paused || demoIsPaused || togglingAction !== null}
+              className="gap-2"
+            >
+              <CirclePause className="h-4 w-4 text-warning" />
+              Tạm dừng
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Summary cards */}

@@ -4,6 +4,7 @@ import { dispatchJob } from "../src/lib/jobs/dispatch";
 import { claimNextJob, completeJob, enqueueJob, failJob, releaseStaleJobs } from "../src/lib/jobs/queue";
 import { runAssignmentCycle, topUpPoolDemos } from "../src/lib/assignment/assignment-service";
 import { createAdminClient } from "../src/lib/supabase/admin";
+import type { Job, WorkerSettings } from "../src/types";
 
 let shuttingDown = false;
 const workerId = env.workerId;
@@ -16,8 +17,51 @@ const AUTO_QUEUE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const AUTO_QUEUE_HOUR_UTC = 2;
 let lastInstagramBatchRun = 0;
 const INSTAGRAM_BATCH_INTERVAL_MS = 60 * 60 * 1000;
-let isPaused = false;
+let workerSettings: WorkerSettings = {
+  is_paused: false,
+  pipeline_paused: false,
+  demo_paused: false,
+  paused_by: null,
+  paused_at: null,
+  updated_at: null,
+};
 const MAINTENANCE_INTERVAL_MS = 5_000;
+
+const PIPELINE_JOB_TYPES = [
+  "search_run",
+  "enrich_lead",
+  "enrich_instagram",
+  "instagram_batch",
+  "instagram_batch_queue",
+  "score_lead",
+  "score_batch",
+  "auto_search_queue",
+];
+
+const DEMO_JOB_TYPES = [
+  "auto_create_demo",
+];
+
+function shouldSkipJob(jobType: string, settings: WorkerSettings): boolean {
+  if (settings.is_paused) return true;
+  if (settings.pipeline_paused && PIPELINE_JOB_TYPES.includes(jobType)) return true;
+  if (settings.demo_paused && DEMO_JOB_TYPES.includes(jobType)) return true;
+  return false;
+}
+
+async function releaseSkippedJob(job: Job) {
+  await createAdminClient()
+    .from("jobs")
+    .update({
+      status: "pending",
+      locked_at: null,
+      locked_by: null,
+      attempts: job.attempts,
+      next_run_at: new Date(Date.now() + pollIntervalMs).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.id);
+}
 
 // Nightly demo-build window — runs while the US is asleep so building demos never
 // competes with ringbooker.com's US traffic, and finishes before assignment.
@@ -48,7 +92,7 @@ async function workerLane(laneId: number) {
   const laneWorkerId = `${workerId}#${laneId}`;
   while (!shuttingDown) {
     try {
-      if (isPaused) {
+      if (workerSettings.is_paused) {
         await sleep(pollIntervalMs);
         continue;
       }
@@ -61,6 +105,12 @@ async function workerLane(laneId: number) {
 
       if ((job as any).status === "cancelled") {
         console.log(`[Lane ${laneId}] Job ${job.id} cancelled, skipping`);
+        continue;
+      }
+
+      if (shouldSkipJob(job.type, workerSettings)) {
+        await releaseSkippedJob(job);
+        await sleep(pollIntervalMs);
         continue;
       }
 
@@ -84,7 +134,7 @@ async function maintenanceLoop() {
   while (!shuttingDown) {
     try {
       await refreshPausedState();
-      if (!isPaused) {
+      if (!workerSettings.is_paused) {
         await releaseStaleJobs(15);
         await maybeEnqueueDailyAutoSearch();
         await maybeEnqueueInstagramBatch();
@@ -106,15 +156,15 @@ async function refreshPausedState() {
   try {
     const { data } = await createAdminClient()
       .from("worker_settings")
-      .select("is_paused")
+      .select("is_paused, pipeline_paused, demo_paused, paused_by, paused_at, updated_at")
       .eq("id", true)
-      .single<{ is_paused: boolean }>();
+      .single<WorkerSettings>();
 
-    const wasPaused = isPaused;
-    isPaused = data?.is_paused ?? false;
+    const wasPaused = workerSettings.is_paused;
+    workerSettings = data ?? workerSettings;
 
-    if (isPaused && !wasPaused) console.log("[Worker] Paused via admin");
-    if (!isPaused && wasPaused) console.log("[Worker] Resumed via admin");
+    if (workerSettings.is_paused && !wasPaused) console.log("[Worker] Paused via admin");
+    if (!workerSettings.is_paused && wasPaused) console.log("[Worker] Resumed via admin");
   } catch {
     // non-critical — keep current state
   }

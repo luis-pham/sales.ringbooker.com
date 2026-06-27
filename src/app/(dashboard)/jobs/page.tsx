@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requireRole } from "@/lib/auth/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { WorkerSettings } from "@/types";
 import { JobsClient } from "./JobsClient";
 
 export default async function JobsPage({
@@ -31,9 +32,9 @@ export default async function JobsPage({
     })(),
     adminClient
       .from("worker_settings")
-      .select("is_paused, paused_by, paused_at")
+      .select("is_paused, pipeline_paused, demo_paused, paused_by, paused_at, updated_at")
       .eq("id", true)
-      .maybeSingle<{ is_paused: boolean; paused_by: string | null; paused_at: string | null }>(),
+      .maybeSingle<WorkerSettings>(),
   ]);
 
   const [pending, processing, failed, dead] = await Promise.all([
@@ -57,6 +58,8 @@ export default async function JobsPage({
         total={jobsResult.count ?? 0}
         summary={summary}
         workerPaused={workerResult.data?.is_paused ?? false}
+        pipelinePaused={workerResult.data?.pipeline_paused ?? false}
+        demoPaused={workerResult.data?.demo_paused ?? false}
         pausedBy={workerResult.data?.paused_by ?? null}
         pausedAt={workerResult.data?.paused_at ?? null}
         page={pageNum}

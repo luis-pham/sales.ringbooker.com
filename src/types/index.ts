@@ -360,6 +360,15 @@ export type AssignmentConfig = {
   updated_at: string;
 };
 
+export type WorkerSettings = {
+  is_paused: boolean;
+  pipeline_paused: boolean;
+  demo_paused: boolean;
+  paused_by: string | null;
+  paused_at: string | null;
+  updated_at?: string | null;
+};
+
 export type AssignmentPoolStats = {
   /** Assignable (unassigned, has_social, scored, vertical-matched, stage ready) leads per priority. */
   pool: { p1: number; p2: number; p3: number; total: number };
