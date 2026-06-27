@@ -4,7 +4,7 @@ import { dispatchJob } from "../src/lib/jobs/dispatch";
 import { claimNextJob, completeJob, enqueueJob, failJob, releaseStaleJobs } from "../src/lib/jobs/queue";
 import { runAssignmentCycle, topUpPoolDemos } from "../src/lib/assignment/assignment-service";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import type { Job, WorkerSettings } from "../src/types";
+import type { JobType, WorkerSettings } from "../src/types";
 
 let shuttingDown = false;
 const workerId = env.workerId;
@@ -27,7 +27,7 @@ let workerSettings: WorkerSettings = {
 };
 const MAINTENANCE_INTERVAL_MS = 5_000;
 
-const PIPELINE_JOB_TYPES = [
+const PIPELINE_JOB_TYPES: JobType[] = [
   "search_run",
   "enrich_lead",
   "enrich_instagram",
@@ -36,31 +36,21 @@ const PIPELINE_JOB_TYPES = [
   "score_lead",
   "score_batch",
   "auto_search_queue",
+  "cleanup",
 ];
 
-const DEMO_JOB_TYPES = [
+const DEMO_JOB_TYPES: JobType[] = [
   "auto_create_demo",
 ];
 
-function shouldSkipJob(jobType: string, settings: WorkerSettings): boolean {
-  if (settings.is_paused) return true;
-  if (settings.pipeline_paused && PIPELINE_JOB_TYPES.includes(jobType)) return true;
-  if (settings.demo_paused && DEMO_JOB_TYPES.includes(jobType)) return true;
-  return false;
-}
+function getAllowedJobTypes(settings: WorkerSettings): JobType[] {
+  if (settings.is_paused) return [];
 
-async function releaseSkippedJob(job: Job) {
-  await createAdminClient()
-    .from("jobs")
-    .update({
-      status: "pending",
-      locked_at: null,
-      locked_by: null,
-      attempts: job.attempts,
-      next_run_at: new Date(Date.now() + pollIntervalMs).toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", job.id);
+  const allowed: JobType[] = [];
+  if (!settings.pipeline_paused) allowed.push(...PIPELINE_JOB_TYPES);
+  if (!settings.demo_paused) allowed.push(...DEMO_JOB_TYPES);
+
+  return allowed;
 }
 
 // Nightly demo-build window — runs while the US is asleep so building demos never
@@ -97,7 +87,13 @@ async function workerLane(laneId: number) {
         continue;
       }
 
-      const job = await claimNextJob(laneWorkerId);
+      const allowedTypes = getAllowedJobTypes(workerSettings);
+      if (allowedTypes.length === 0) {
+        await sleep(pollIntervalMs);
+        continue;
+      }
+
+      const job = await claimNextJob(laneWorkerId, allowedTypes);
       if (!job) {
         await sleep(pollIntervalMs);
         continue;
@@ -105,12 +101,6 @@ async function workerLane(laneId: number) {
 
       if ((job as any).status === "cancelled") {
         console.log(`[Lane ${laneId}] Job ${job.id} cancelled, skipping`);
-        continue;
-      }
-
-      if (shouldSkipJob(job.type, workerSettings)) {
-        await releaseSkippedJob(job);
-        await sleep(pollIntervalMs);
         continue;
       }
 

@@ -3,9 +3,18 @@ import { dispatchJob } from "@/lib/jobs/dispatch";
 import { claimNextJob, completeJob, failJob, releaseStaleJobs } from "@/lib/jobs/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyInternalRequest } from "@/lib/utils/security";
-import type { Job, WorkerSettings } from "@/types";
+import type { JobType, WorkerSettings } from "@/types";
 
-const PIPELINE_JOB_TYPES = [
+const DEFAULT_WORKER_SETTINGS: WorkerSettings = {
+  is_paused: false,
+  pipeline_paused: false,
+  demo_paused: false,
+  paused_by: null,
+  paused_at: null,
+  updated_at: null,
+};
+
+const PIPELINE_JOB_TYPES: JobType[] = [
   "search_run",
   "enrich_lead",
   "enrich_instagram",
@@ -14,31 +23,21 @@ const PIPELINE_JOB_TYPES = [
   "score_lead",
   "score_batch",
   "auto_search_queue",
+  "cleanup",
 ];
 
-const DEMO_JOB_TYPES = [
+const DEMO_JOB_TYPES: JobType[] = [
   "auto_create_demo",
 ];
 
-function shouldSkipJob(jobType: string, settings: WorkerSettings): boolean {
-  if (settings.is_paused) return true;
-  if (settings.pipeline_paused && PIPELINE_JOB_TYPES.includes(jobType)) return true;
-  if (settings.demo_paused && DEMO_JOB_TYPES.includes(jobType)) return true;
-  return false;
-}
+function getAllowedJobTypes(settings: WorkerSettings): JobType[] {
+  if (settings.is_paused) return [];
 
-async function releaseSkippedJob(job: Job) {
-  await createAdminClient()
-    .from("jobs")
-    .update({
-      status: "pending",
-      locked_at: null,
-      locked_by: null,
-      attempts: job.attempts,
-      next_run_at: new Date(Date.now() + 2000).toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", job.id);
+  const allowed: JobType[] = [];
+  if (!settings.pipeline_paused) allowed.push(...PIPELINE_JOB_TYPES);
+  if (!settings.demo_paused) allowed.push(...DEMO_JOB_TYPES);
+
+  return allowed;
 }
 
 export async function GET(request: NextRequest) {
@@ -52,18 +51,19 @@ export async function GET(request: NextRequest) {
     .select("is_paused, pipeline_paused, demo_paused, paused_by, paused_at, updated_at")
     .eq("id", true)
     .maybeSingle<WorkerSettings>();
-  if (settings?.is_paused) {
+  const workerSettings = settings ?? DEFAULT_WORKER_SETTINGS;
+  if (workerSettings.is_paused) {
+    return NextResponse.json({ data: { status: "paused" } });
+  }
+
+  const allowedTypes = getAllowedJobTypes(workerSettings);
+  if (allowedTypes.length === 0) {
     return NextResponse.json({ data: { status: "paused" } });
   }
 
   await releaseStaleJobs(15);
-  const job = await claimNextJob("vercel-cron");
+  const job = await claimNextJob("vercel-cron", allowedTypes);
   if (!job) return NextResponse.json({ data: { status: "idle" } });
-
-  if (settings && shouldSkipJob(job.type, settings)) {
-    await releaseSkippedJob(job);
-    return NextResponse.json({ data: { status: "skipped", jobId: job.id, type: job.type } });
-  }
 
   try {
     await dispatchJob(job);

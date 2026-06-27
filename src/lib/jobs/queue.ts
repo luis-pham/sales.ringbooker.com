@@ -23,9 +23,12 @@ export async function enqueueJob(
   return data.id;
 }
 
-export async function claimNextJob(workerId: string): Promise<Job | null> {
+export async function claimNextJob(workerId: string, allowedTypes?: JobType[]): Promise<Job | null> {
   const adminClient = createAdminClient();
-  const { data, error } = await adminClient.rpc("claim_next_job", { p_worker_id: workerId });
+  const { data, error } = await adminClient.rpc("claim_next_job", {
+    p_worker_id: workerId,
+    p_allowed_types: allowedTypes?.length ? allowedTypes : null,
+  });
   if (error) throw new Error(`Failed to claim job: ${error.message}`);
   // Supabase returns {id: null, ...} (not JS null) when the SQL function finds no row
   const job = data as Job | null;
