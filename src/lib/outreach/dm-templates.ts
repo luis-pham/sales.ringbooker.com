@@ -6,6 +6,7 @@
  * and reveals are rotated *stably per lead* (hashed lead id) so every lead keeps
  * one variant — even A/B spread, reproducible, doesn't change on re-open.
  */
+import { buildRingbookerDemoUrl } from "@/lib/demo-url";
 import type { PipelineLead } from "@/types";
 
 function salon(lead: PipelineLead): string {
@@ -14,7 +15,7 @@ function salon(lead: PipelineLead): string {
 
 function demoUrl(lead: PipelineLead): string {
   // lead.demo.slug is the /try/<slug> path stored from the ringbooker demo URL.
-  return lead.demo?.slug ? `https://ringbooker.com/${lead.demo.slug}` : "your personalized demo link";
+  return buildRingbookerDemoUrl(lead.demo?.slug) ?? "your personalized demo link";
 }
 
 /** Lowercased plural business type for "for {type}s like yours" — falls back to "salons". */

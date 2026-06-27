@@ -1,4 +1,5 @@
 import { Progress } from "@/components/ui/progress";
+import { buildRingbookerDemoUrl } from "@/lib/demo-url";
 import type { DemoTracking, DemoSession } from "@/types";
 
 function timeBadge(hour: number) {
@@ -55,19 +56,20 @@ export function DemoTrackingBlock({
 
   const isHot = tracking.plays >= 2 || tracking.pct >= 80;
   const barColor = isHot ? "bg-amber-500" : "bg-emerald-500";
+  const demoUrl = buildRingbookerDemoUrl(tracking.slug);
 
   return (
     <div className="space-y-4">
-      {tracking.slug && (
+      {demoUrl && (
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted">URL:</span>
           <a
-            href={`https://ringbooker.com/${tracking.slug}`}
+            href={demoUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-violet-700 hover:underline truncate"
           >
-            ringbooker.com/{tracking.slug}
+            {demoUrl.replace("https://", "")}
           </a>
         </div>
       )}

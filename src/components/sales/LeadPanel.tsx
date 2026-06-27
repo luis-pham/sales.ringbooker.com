@@ -12,6 +12,7 @@ import { TimelineBlock } from "./TimelineBlock";
 import { EvidencePicker } from "./EvidencePicker";
 import { EvidenceList } from "./EvidenceList";
 import { useDemoTracking } from "@/hooks/useDemoTracking";
+import { buildRingbookerDemoUrl } from "@/lib/demo-url";
 import { getNextAction } from "@/lib/getNextAction";
 import { submitStepWithEvidence } from "@/lib/evidence-client";
 import { buildOpener } from "@/lib/outreach/dm-templates";
@@ -43,7 +44,7 @@ function SendDMBlock({ lead, onDone }: { lead: PipelineLead; onDone: () => void 
   const [qaChecked, setQaChecked] = useState(false);
   const [qaSaving, setQaSaving] = useState(false);
   const platformUrl = platformLink(lead);
-  const demoUrl = lead.demo?.slug ? `https://ringbooker.com/${lead.demo.slug}` : null;
+  const demoUrl = buildRingbookerDemoUrl(lead.demo?.slug);
 
   async function handleCopy() {
     await navigator.clipboard.writeText(message);

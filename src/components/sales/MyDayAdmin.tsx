@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { StageBadge } from "./StageBadge";
+import { buildRingbookerDemoUrl } from "@/lib/demo-url";
 import type { LeadStage, PipelineLead } from "@/types";
 
 type MyDayLead = PipelineLead & {
@@ -45,6 +46,7 @@ function LeadRow({
   onSelectLead: (lead: PipelineLead) => void;
 }) {
   const demoSlug = lead.demo?.slug;
+  const demoUrl = buildRingbookerDemoUrl(demoSlug);
 
   return (
     <div className="rounded-md border border-border bg-background p-3 transition-colors hover:bg-surface-muted">
@@ -58,10 +60,10 @@ function LeadRow({
           <div className="mt-0.5 truncate text-xs text-muted">{lead.location}</div>
         </button>
         <div className="flex shrink-0 items-center gap-2">
-          {showDemoLink && demoSlug ? (
+          {showDemoLink && demoUrl ? (
             <button
               type="button"
-              onClick={() => window.open(`https://ringbooker.com/try/${demoSlug}`, "_blank", "noopener,noreferrer")}
+              onClick={() => window.open(demoUrl, "_blank", "noopener,noreferrer")}
               className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-violet-300 hover:text-violet-700"
             >
               <ExternalLink className="h-3 w-3" />
